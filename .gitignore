@@ -60,3 +60,15 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Build products (本仓库用 xcodebuild 构建到 ./build)
+build/
+DerivedData/
+
+# macOS
+.DS_Store
+
+# 本地工具目录
+.zcode/
+.mimosa/
+.video_agent/
