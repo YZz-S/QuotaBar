@@ -1,0 +1,461 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2A000020 /* ApiUsageShowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000050 /* ApiUsageShowApp.swift */; };
+		2A000021 /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000051 /* StatusView.swift */; };
+		2A000022 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000056 /* Models.swift */; };
+		2A000023 /* ProvidersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000057 /* ProvidersStore.swift */; };
+		2A000024 /* QueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000058 /* QueryService.swift */; };
+		2A000025 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000059 /* SnapshotCache.swift */; };
+		2A000026 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005A /* ViewHelpers.swift */; };
+		2A000027 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005B /* ModelCatalog.swift */; };
+		2A000029 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005C /* ModelsView.swift */; };
+		2A000028 /* ApiUsageShowWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2A000008 /* ApiUsageShowWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		2A000040 /* ApiUsageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000052 /* ApiUsageWidgetBundle.swift */; };
+		2A000041 /* ApiUsageWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000053 /* ApiUsageWidget.swift */; };
+		2A000042 /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000054 /* WidgetViews.swift */; };
+		2A000043 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000056 /* Models.swift */; };
+		2A000044 /* ProvidersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000057 /* ProvidersStore.swift */; };
+		2A000045 /* QueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000058 /* QueryService.swift */; };
+		2A000046 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000059 /* SnapshotCache.swift */; };
+		2A000047 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005A /* ViewHelpers.swift */; };
+		2A000048 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005B /* ModelCatalog.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2A000070 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2A000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A000030;
+			remoteInfo = ApiUsageShowWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2A000019 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2A000028 /* ApiUsageShowWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2A000007 /* ApiUsageShow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ApiUsageShow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A000008 /* ApiUsageShowWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ApiUsageShowWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A000050 /* ApiUsageShowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiUsageShowApp.swift; sourceTree = "<group>"; };
+		2A000051 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
+		2A000052 /* ApiUsageWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiUsageWidgetBundle.swift; sourceTree = "<group>"; };
+		2A000053 /* ApiUsageWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiUsageWidget.swift; sourceTree = "<group>"; };
+		2A000054 /* WidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
+		2A000055 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2A000056 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		2A000057 /* ProvidersStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvidersStore.swift; sourceTree = "<group>"; };
+		2A000058 /* QueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryService.swift; sourceTree = "<group>"; };
+		2A000059 /* SnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotCache.swift; sourceTree = "<group>"; };
+		2A00005A /* ViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
+		2A00005B /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
+		2A00005C /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2A000005 = {
+			isa = PBXGroup;
+			children = (
+				2A000060 /* App */,
+				2A000061 /* Widget */,
+				2A000062 /* Shared */,
+				2A000006 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2A000006 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2A000007 /* ApiUsageShow.app */,
+				2A000008 /* ApiUsageShowWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2A000060 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				2A000050 /* ApiUsageShowApp.swift */,
+				2A000051 /* StatusView.swift */,
+				2A00005C /* ModelsView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		2A000061 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				2A000052 /* ApiUsageWidgetBundle.swift */,
+				2A000053 /* ApiUsageWidget.swift */,
+				2A000054 /* WidgetViews.swift */,
+				2A000055 /* Info.plist */,
+			);
+			path = Widget;
+			sourceTree = "<group>";
+		};
+		2A000062 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				2A000056 /* Models.swift */,
+				2A000057 /* ProvidersStore.swift */,
+				2A000058 /* QueryService.swift */,
+				2A000059 /* SnapshotCache.swift */,
+				2A00005A /* ViewHelpers.swift */,
+				2A00005B /* ModelCatalog.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2A000010 /* ApiUsageShow */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A000011 /* Build configuration list for PBXNativeTarget "ApiUsageShow" */;
+			buildPhases = (
+				2A000014 /* Sources */,
+				2A000019 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A000071 /* PBXTargetDependency */,
+			);
+			name = ApiUsageShow;
+			productName = ApiUsageShow;
+			productReference = 2A000007 /* ApiUsageShow.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2A000030 /* ApiUsageShowWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A000031 /* Build configuration list for PBXNativeTarget "ApiUsageShowWidget" */;
+			buildPhases = (
+				2A000034 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ApiUsageShowWidget;
+			productName = ApiUsageShowWidget;
+			productReference = 2A000008 /* ApiUsageShowWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2A000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 2660;
+			};
+			buildConfigurationList = 2A000002 /* Build configuration list for PBXProject "ApiUsageShow" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 2A000005;
+			productRefGroup = 2A000006 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2A000010 /* ApiUsageShow */,
+				2A000030 /* ApiUsageShowWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2A000014 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A000020 /* ApiUsageShowApp.swift in Sources */,
+				2A000021 /* StatusView.swift in Sources */,
+				2A000022 /* Models.swift in Sources */,
+				2A000023 /* ProvidersStore.swift in Sources */,
+				2A000024 /* QueryService.swift in Sources */,
+				2A000025 /* SnapshotCache.swift in Sources */,
+				2A000026 /* ViewHelpers.swift in Sources */,
+				2A000027 /* ModelCatalog.swift in Sources */,
+				2A000029 /* ModelsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2A000034 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A000040 /* ApiUsageWidgetBundle.swift in Sources */,
+				2A000041 /* ApiUsageWidget.swift in Sources */,
+				2A000042 /* WidgetViews.swift in Sources */,
+				2A000043 /* Models.swift in Sources */,
+				2A000044 /* ProvidersStore.swift in Sources */,
+				2A000045 /* QueryService.swift in Sources */,
+				2A000046 /* SnapshotCache.swift in Sources */,
+				2A000047 /* ViewHelpers.swift in Sources */,
+				2A000048 /* ModelCatalog.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2A000071 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A000030 /* ApiUsageShowWidget */;
+			targetProxy = 2A000070 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2A000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = D35P9V7J8X;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		2A000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = D35P9V7J8X;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		2A000012 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = App/ApiUsageShow.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = D35P9V7J8X;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "API Usage";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		2A000013 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = App/ApiUsageShow.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = D35P9V7J8X;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "API Usage";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2A000032 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Widget/ApiUsageShowWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = D35P9V7J8X;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		2A000033 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = Widget/ApiUsageShowWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = D35P9V7J8X;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2A000002 /* Build configuration list for PBXProject "ApiUsageShow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A000003 /* Debug */,
+				2A000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A000011 /* Build configuration list for PBXNativeTarget "ApiUsageShow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A000012 /* Debug */,
+				2A000013 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A000031 /* Build configuration list for PBXNativeTarget "ApiUsageShowWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A000032 /* Debug */,
+				2A000033 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2A000001 /* Project object */;
+}
