@@ -78,6 +78,10 @@ struct StatusView: View {
                 fromCache = true
             }
             WidgetCenter.shared.reloadAllTimelines()
+            QuotaAlertCenter.shared.start()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .credentialsChanged)) { _ in
+            credentials = ProvidersStore.loadCredentials()
         }
     }
 
@@ -98,7 +102,8 @@ struct StatusView: View {
                             .foregroundStyle(credential.kind.brandColor)
                             .frame(width: 22)
                         Text(credential.kind.displayName).fontWeight(.medium)
-                        Text("← \(credential.sourceName)")
+                        Text(credential.sourceName == ProvidersStore.manualSourceName
+                             ? "手动配置" : "← \(credential.sourceName)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)

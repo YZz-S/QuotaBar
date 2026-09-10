@@ -29,9 +29,12 @@
 
 App Group 容器路径：`~/Library/Group Containers/D35P9V7J8X.group.ApiUsageShow/Library/Application Support/ApiUsageShow/`。
 
-- **零配置**：凭据跟随 cc-switch；在 cc-switch 里改 key 后重新打开一次本 App 即同步给小组件。
+- **零配置**：凭据跟随 cc-switch；在 cc-switch 里改 key 后重新打开一次本 App 即同步给小组件。也可在 App「设置」页**手动填写 API Key**（覆盖自动识别，写入同一容器）。
 - **小组件必须沙箱**：macOS 的插件注册（pkd）拒绝收录未沙箱的 appex，因此 widget 通过 App Group 与未沙箱的 App 交换数据。
 - 尺寸：小号 = 使用率最高的窗口进度环 + 剩余/重置；中号 = 左栏火山三窗口，右栏智谱双窗口 + DeepSeek 余额；大号 = 三家全部窗口 + 支持模型摘要。每个分区点击跳对应控制台。
+- **手动刷新**：三种尺寸都有 ↻ 按钮（交互式小组件，`RefreshUsageIntent`）。按钮查询后写快照，系统自动重载时间线；`getTimeline` 发现快照在 2 分钟内就直接复用，不重复请求。
+- **警戒通知**（App「设置」页）：火山 / 智谱任一窗口使用率 ≥ 阈值、DeepSeek 余额 ≤ 阈值时发本地通知；由 App 负责检查（启动后 5 秒一次，之后按 5/15/30/60 分钟轮询），小组件扩展本身无法发通知。勾选「登录时自动启动」可让检查常驻。每个窗口只在从低于阈值跨到高于阈值时提醒一次。
+- 应用图标由 `scripts/make_icons.swift` 用 CoreGraphics 生成（`swift scripts/make_icons.swift icons` 输出 4 个候选），选定后替换 `App/Assets.xcassets/AppIcon.appiconset/` 里的图片即可。
 
 ## 构建
 
@@ -66,9 +69,12 @@ macOS 26 上要让小组件出现在小组件库，必须同时满足两点（�
 
 ```
 ApiUsageShow.xcodeproj/project.pbxproj   # 手写工程：App + Widget Extension 两 target
-App/          ApiUsageShowApp(TabView), StatusView(用量), ModelsView(模型), ApiUsageShow.entitlements
-Widget/       ApiUsageWidgetBundle/ApiUsageWidget/WidgetViews.swift, Info.plist, ApiUsageShowWidget.entitlements
-Shared/       Models, ProvidersStore(cc-switch DB + App Group 导出), QueryService(三厂商),
+App/          ApiUsageShowApp(TabView), StatusView(用量), ModelsView(模型), SettingsView(手动 Key + 警戒通知),
+              QuotaAlertCenter(定时检查 + 本地通知), Assets.xcassets(AppIcon), ApiUsageShow.entitlements
+Widget/       ApiUsageWidgetBundle / ApiUsageWidget(时间线 + RefreshUsageIntent) / WidgetViews.swift,
+              Info.plist, ApiUsageShowWidget.entitlements
+Shared/       Models, ProvidersStore(cc-switch DB + 手动配置 + App Group 导出), QueryService(三厂商),
               SnapshotCache(App Group 容器), ViewHelpers(共用窗口行视图), ModelCatalog(模型/价格静态资料)
-scripts/      UsageCheck.swift                           # 终端独立自检脚本
+scripts/      UsageCheck.swift（终端独立自检）, make_icons.swift（图标生成）
+icons/        四个应用图标候选 PNG
 ```

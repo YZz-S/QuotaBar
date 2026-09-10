@@ -16,6 +16,9 @@
 		2A000026 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005A /* ViewHelpers.swift */; };
 		2A000027 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005B /* ModelCatalog.swift */; };
 		2A000029 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005C /* ModelsView.swift */; };
+		2A00002A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005D /* SettingsView.swift */; };
+		2A00002B /* QuotaAlertCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005E /* QuotaAlertCenter.swift */; };
+		2A00002C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2A00005F /* Assets.xcassets */; };
 		2A000028 /* ApiUsageShowWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2A000008 /* ApiUsageShowWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2A000040 /* ApiUsageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000052 /* ApiUsageWidgetBundle.swift */; };
 		2A000041 /* ApiUsageWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000053 /* ApiUsageWidget.swift */; };
@@ -68,6 +71,9 @@
 		2A00005A /* ViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
 		2A00005B /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
 		2A00005C /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
+		2A00005D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		2A00005E /* QuotaAlertCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaAlertCenter.swift; sourceTree = "<group>"; };
+		2A00005F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -96,6 +102,9 @@
 				2A000050 /* ApiUsageShowApp.swift */,
 				2A000051 /* StatusView.swift */,
 				2A00005C /* ModelsView.swift */,
+				2A00005D /* SettingsView.swift */,
+				2A00005E /* QuotaAlertCenter.swift */,
+				2A00005F /* Assets.xcassets */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -132,6 +141,7 @@
 			buildConfigurationList = 2A000011 /* Build configuration list for PBXNativeTarget "ApiUsageShow" */;
 			buildPhases = (
 				2A000014 /* Sources */,
+				2A000016 /* Resources */,
 				2A000019 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -203,6 +213,8 @@
 				2A000026 /* ViewHelpers.swift in Sources */,
 				2A000027 /* ModelCatalog.swift in Sources */,
 				2A000029 /* ModelsView.swift in Sources */,
+				2A00002A /* SettingsView.swift in Sources */,
+				2A00002B /* QuotaAlertCenter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,6 +235,17 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2A000016 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A00002C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		2A000071 /* PBXTargetDependency */ = {
@@ -334,6 +357,7 @@
 		2A000012 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = App/ApiUsageShow.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -357,6 +381,7 @@
 		2A000013 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = App/ApiUsageShow.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";

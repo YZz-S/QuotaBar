@@ -1,5 +1,20 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
+
+/// 小组件上的手动刷新按钮：查询后写快照，系统随后自动重载时间线，
+/// getTimeline 发现快照很新就直接复用，不再重复请求。
+struct RefreshUsageIntent: AppIntent {
+    static let title: LocalizedStringResource = "刷新 API 用量"
+    static let description = IntentDescription("重新查询火山方舟、智谱 GLM、DeepSeek 的用量并更新小组件")
+
+    func perform() async throws -> some IntentResult {
+        let credentials = ProvidersStore.loadCredentials()
+        let results = await QueryService.fetchAll(credentials)
+        if !results.isEmpty { SnapshotCache.save(results) }
+        return .result()
+    }
+}
 
 struct UsageEntry: TimelineEntry {
     let date: Date
@@ -35,8 +50,18 @@ struct UsageTimelineProvider: TimelineProvider {
         }
     }
 
-    /// 每次刷新：读 cc-switch 凭据 → 并发查询三家 → 写缓存 → 15 分钟后再刷
+    /// 每次刷新：读凭据 → 并发查询三家 → 写缓存 → 15 分钟后再刷。
+    /// 两分钟内刚被刷新按钮或 App 查询过的快照直接复用。
     func getTimeline(in context: Context, completion: @escaping (Timeline<UsageEntry>) -> Void) {
+        let next = Calendar.current.date(byAdding: .minute, value: 15, to: Date())
+            ?? Date().addingTimeInterval(900)
+        if let cached = SnapshotCache.load(), !cached.isEmpty,
+           let latest = cached.map(\.queryDate).max(),
+           Date().timeIntervalSince(latest) < 120 {
+            let entry = UsageEntry(date: Date(), usages: ordered(cached), usedCache: false)
+            completion(Timeline(entries: [entry], policy: .after(next)))
+            return
+        }
         let credentials = ProvidersStore.loadCredentials()
         Task {
             var usages = await QueryService.fetchAll(credentials)
@@ -55,8 +80,6 @@ struct UsageTimelineProvider: TimelineProvider {
             }
             if !usages.isEmpty { SnapshotCache.save(usages) }
             let entry = UsageEntry(date: Date(), usages: usages, usedCache: usedCache)
-            let next = Calendar.current.date(byAdding: .minute, value: 15, to: Date())
-                ?? Date().addingTimeInterval(900)
             completion(Timeline(entries: [entry], policy: .after(next)))
         }
     }

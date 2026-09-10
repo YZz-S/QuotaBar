@@ -20,7 +20,7 @@ struct ApiUsageWidgetEntryView: View {
     }
 }
 
-// MARK: - 空状态
+// MARK: - 空状态 / 刷新按钮
 
 private struct EmptyUsageView: View {
     var body: some View {
@@ -33,6 +33,22 @@ private struct EmptyUsageView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// 交互式小组件按钮：点按执行 RefreshUsageIntent（不能嵌在 Link 里）
+private struct RefreshButton: View {
+    var size: CGFloat = 10
+
+    var body: some View {
+        Button(intent: RefreshUsageIntent()) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: size + 10, height: size + 10)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -70,11 +86,14 @@ struct MediumUsageView: View {
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                 }
-                if usedCache {
-                    Text("缓存数据 · 稍后自动刷新")
-                        .font(.system(size: 7.5))
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                HStack(spacing: 4) {
+                    RefreshButton(size: 8.5)
+                    Spacer(minLength: 2)
+                    if usedCache {
+                        Text("缓存数据 · 稍后自动刷新")
+                            .font(.system(size: 7.5))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
             .padding(.horizontal, 4)
@@ -149,13 +168,14 @@ struct LargeUsageView: View {
             EmptyUsageView()
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                HStack(spacing: 6) {
                     Text("API 用量")
                         .font(.system(size: 13, weight: .bold))
                     Spacer()
                     Text((usedCache ? "缓存 · " : "更新 ") + Self.timeText(date))
                         .font(.system(size: 9))
                         .foregroundStyle(.tertiary)
+                    RefreshButton(size: 10)
                 }
                 ForEach(usages) { usage in
                     ProviderSection(usage: usage)
@@ -259,6 +279,8 @@ struct SmallUsageView: View {
                             .font(.system(size: 9))
                             .foregroundStyle(.secondary)
                     }
+                    Spacer(minLength: 2)
+                    RefreshButton(size: 8.5)
                 }
                 if usage.ok, usage.kind == .deepseek, let text = usage.balanceText {
                     Spacer()

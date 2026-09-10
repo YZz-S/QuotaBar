@@ -11,21 +11,51 @@ enum ProvidersStore {
     }
 
     static var exportedURL: URL { AppGroup.dataDirectory.appendingPathComponent("credentials.json") }
+    /// 用户在 App 设置页手动填写的凭据，按 provider 覆盖 cc-switch 自动识别的结果
+    static var manualURL: URL { AppGroup.dataDirectory.appendingPathComponent("manual-credentials.json") }
+
+    static let manualSourceName = "手动配置"
 
     static func loadCredentials() -> [ProviderCredentials] {
-        let fromDatabase = loadFromDatabase()
-        return fromDatabase.isEmpty ? loadExported() : fromDatabase
+        var merged = loadFromDatabase()
+        if merged.isEmpty { merged = loadExported().filter { $0.sourceName != manualSourceName } }
+        for manual in loadManual() {
+            if let index = merged.firstIndex(where: { $0.kind == manual.kind }) {
+                merged[index] = manual
+            } else {
+                merged.append(manual)
+            }
+        }
+        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek]
+        return merged.sorted { (order.firstIndex(of: $0.kind) ?? 9) < (order.firstIndex(of: $1.kind) ?? 9) }
     }
 
     /// App 调用：把识别到的凭据写入 App Group 容器供 widget 使用（仅本用户可读）
     static func exportCredentials(_ credentials: [ProviderCredentials]) {
-        guard !credentials.isEmpty, let data = try? JSONEncoder().encode(credentials) else { return }
-        try? data.write(to: exportedURL, options: .atomic)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: exportedURL.path)
+        guard !credentials.isEmpty else { return }
+        writeSecure(credentials, to: exportedURL)
     }
 
-    static func loadExported() -> [ProviderCredentials] {
-        guard let data = try? Data(contentsOf: exportedURL) else { return [] }
+    static func loadExported() -> [ProviderCredentials] { read(exportedURL) }
+
+    static func loadManual() -> [ProviderCredentials] { read(manualURL) }
+
+    static func saveManual(_ credentials: [ProviderCredentials]) {
+        if credentials.isEmpty {
+            try? FileManager.default.removeItem(at: manualURL)
+        } else {
+            writeSecure(credentials, to: manualURL)
+        }
+    }
+
+    private static func writeSecure(_ credentials: [ProviderCredentials], to url: URL) {
+        guard let data = try? JSONEncoder().encode(credentials) else { return }
+        try? data.write(to: url, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+
+    private static func read(_ url: URL) -> [ProviderCredentials] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
         return (try? JSONDecoder().decode([ProviderCredentials].self, from: data)) ?? []
     }
 
