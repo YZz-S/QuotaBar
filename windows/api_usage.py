@@ -887,7 +887,8 @@ def main():
     args = parser.parse_args()
 
     thresholds = parse_alert_spec(args.alert) if args.alert else dict(DEFAULT_ALERTS)
-    style = Style(args.color and sys.stdout.isatty())
+    # pythonw 常驻（无控制台）时 sys.stdout 为 None，print 可用但 isatty 需保护
+    style = Style(args.color and sys.stdout is not None and sys.stdout.isatty())
     if os.name == "nt":
         try:
             os.system("")  # 请求 conhost 启用 ANSI/VT 处理
