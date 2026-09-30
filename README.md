@@ -77,4 +77,5 @@ Shared/       Models, ProvidersStore(cc-switch DB + 手动配置 + App Group 导
               SnapshotCache(App Group 容器), ViewHelpers(共用窗口行视图), ModelCatalog(模型/价格静态资料)
 scripts/      UsageCheck.swift（终端独立自检）, make_icons.swift（图标生成）
 icons/        四个应用图标候选 PNG
+windows/      Windows 版命令行工具（Python 单文件，复用 cc-switch 凭据查同样三家接口）→ 见 windows/README-WINDOWS.md
 ```
