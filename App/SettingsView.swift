@@ -20,6 +20,13 @@ struct SettingsView: View {
     @State private var saveMessage = ""
     @State private var launchAtLogin = false
     @State private var launchError = ""
+    @State private var channels = PushChannelsConfig()
+    @State private var testingSMTP = false
+    @State private var smtpTestText = ""
+    @State private var smtpTestOK = false
+    @State private var testingWeCom = false
+    @State private var wecomTestText = ""
+    @State private var wecomTestOK = false
 
     var body: some View {
         ScrollView {
@@ -39,6 +46,7 @@ struct SettingsView: View {
 
                 credentialsSection
                 notificationSection
+                pushChannelsSection
             }
             .padding(18)
         }
@@ -46,6 +54,7 @@ struct SettingsView: View {
             loadManualFields()
             refreshEffective()
             launchAtLogin = alerts.launchAtLogin
+            channels = PushChannelsStore.load()
             alerts.start()
         }
     }
@@ -292,5 +301,147 @@ struct SettingsView: View {
             Spacer()
         }
         .font(.caption)
+    }
+
+    // MARK: - 推送渠道（邮件 / 企业微信）
+
+    private var pushChannelsSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("通过邮件推送（SMTP）", isOn: channelsBinding(\.smtpEnabled))
+                if channels.smtpEnabled {
+                    Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+                        GridRow {
+                            Text("服务器")
+                            TextField("如 smtp.qq.com", text: channelsBinding(\.smtpHost))
+                            Text("端口")
+                            TextField("465", value: channelsBinding(\.smtpPort),
+                                      format: .number.grouping(.never))
+                                .frame(width: 56)
+                        }
+                        GridRow {
+                            Text("账号")
+                            TextField("登录邮箱，如 you@example.com", text: channelsBinding(\.smtpUsername))
+                            Text("密码")
+                            SecureField("授权码（QQ/163 等）", text: channelsBinding(\.smtpPassword))
+                        }
+                        GridRow {
+                            Text("发件人")
+                            TextField("留空 = 登录账号", text: channelsBinding(\.smtpFrom))
+                            Text("收件人")
+                            TextField("多个用逗号分隔，留空 = 登录账号", text: channelsBinding(\.smtpTo))
+                        }
+                    }
+                    .font(.caption)
+                    HStack(spacing: 10) {
+                        Button {
+                            Task { await testSMTP() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if testingSMTP { ProgressView().controlSize(.mini) }
+                                Text(testingSMTP ? "发送中…" : "发送测试邮件")
+                            }
+                        }
+                        .disabled(testingSMTP)
+                        if !smtpTestText.isEmpty {
+                            Text(smtpTestText)
+                                .font(.caption)
+                                .foregroundStyle(smtpTestOK ? Color.green : Color.red)
+                                .lineLimit(3)
+                        }
+                        Spacer()
+                    }
+                    .font(.caption)
+                    Text("端口约定：465 = SSL，587 = STARTTLS，25 = 尝试加密。QQ / 163 / Gmail 等需在邮箱设置里生成授权码，用授权码代替登录密码。")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Divider()
+
+                Toggle("推送到企业微信群机器人", isOn: channelsBinding(\.wecomEnabled))
+                if channels.wecomEnabled {
+                    SecureField("Webhook 地址：https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…",
+                                text: channelsBinding(\.wecomWebhook))
+                        .font(.system(.caption, design: .monospaced))
+                    Toggle("同时 @所有人", isOn: channelsBinding(\.wecomMentionAll))
+                        .font(.caption)
+                    HStack(spacing: 10) {
+                        Button {
+                            Task { await testWeCom() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if testingWeCom { ProgressView().controlSize(.mini) }
+                                Text(testingWeCom ? "发送中…" : "发送测试消息")
+                            }
+                        }
+                        .disabled(testingWeCom)
+                        if !wecomTestText.isEmpty {
+                            Text(wecomTestText)
+                                .font(.caption)
+                                .foregroundStyle(wecomTestOK ? Color.green : Color.red)
+                                .lineLimit(3)
+                        }
+                        Spacer()
+                    }
+                    .font(.caption)
+                    Text("群聊 → 设置 → 群机器人 → 添加机器人可获取 Webhook 地址。")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Text("渠道跟随「启用警戒通知」总开关与上方阈值：跨越阈值时除本地通知外同时推送（一次检查的多条告警聚合成一封邮件 / 一条消息）。凭据仅保存在本机（0600 权限），不写入快照。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("推送渠道", systemImage: "paperplane.fill")
+                .font(.subheadline.weight(.semibold))
+        }
+        .textFieldStyle(.roundedBorder)
+    }
+
+    /// 绑定到 channels 的任意字段，改动即保存
+    private func channelsBinding<Value: Equatable>(_ keyPath: WritableKeyPath<PushChannelsConfig, Value>) -> Binding<Value> {
+        Binding(
+            get: { channels[keyPath: keyPath] },
+            set: { newValue in
+                guard channels[keyPath: keyPath] != newValue else { return }
+                channels[keyPath: keyPath] = newValue
+                PushChannelsStore.save(channels)
+            })
+    }
+
+    private func testSMTP() async {
+        testingSMTP = true
+        defer { testingSMTP = false }
+        PushChannelsStore.save(channels)
+        do {
+            try await SMTPSender.send(
+                subject: "API Usage 测试邮件",
+                body: "这是一封来自 API Usage 的测试邮件，收到即说明邮件推送配置正确。",
+                config: channels)
+            smtpTestText = "已发送，请到收件箱（含垃圾箱）确认"
+            smtpTestOK = true
+        } catch {
+            smtpTestText = error.localizedDescription
+            smtpTestOK = false
+        }
+    }
+
+    private func testWeCom() async {
+        testingWeCom = true
+        defer { testingWeCom = false }
+        PushChannelsStore.save(channels)
+        do {
+            try await WeComSender.send(text: "【API Usage】测试消息：企业微信推送配置正确 ✓", config: channels)
+            wecomTestText = "已发送，请到群里确认"
+            wecomTestOK = true
+        } catch {
+            wecomTestText = error.localizedDescription
+            wecomTestOK = false
+        }
     }
 }

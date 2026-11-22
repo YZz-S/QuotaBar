@@ -104,6 +104,9 @@ final class QuotaAlertCenter: ObservableObject {
         } else if config.enabled {
             for alert in alerts { await post(alert) }
             text += "，已发送 \(alerts.count) 条通知"
+            if let failure = await pushThroughChannels(alerts) {
+                text += "（\(failure)）"
+            }
         } else {
             text += "，\(alerts.count) 项超阈值（通知未启用）"
         }
@@ -158,6 +161,38 @@ final class QuotaAlertCenter: ObservableObject {
         try? await UNUserNotificationCenter.current().add(request)
     }
 
+    /// 一次检查的超阈值项聚合后经外部渠道（邮件 / 企业微信）推送，避免逐条刷屏。
+    /// 任一渠道失败时返回失败摘要，附加在检查结果文本里。
+    private func pushThroughChannels(_ alerts: [Alert]) async -> String? {
+        let channels = PushChannelsStore.load()
+        let digest = alerts
+            .map { "\($0.title)\n\($0.body)" }
+            .joined(separator: "\n\n")
+        let timestamp = Self.stamp()
+
+        var failures: [String] = []
+        if channels.smtpEnabled {
+            do {
+                try await SMTPSender.send(
+                    subject: "API 用量警戒：\(alerts.count) 项超阈值",
+                    body: digest + "\n\n——\n检查时间：\(timestamp)",
+                    config: channels)
+            } catch {
+                failures.append("邮件推送失败：\(error.localizedDescription)")
+            }
+        }
+        if channels.wecomEnabled {
+            do {
+                try await WeComSender.send(
+                    text: "【API 用量警戒】\(alerts.count) 项超阈值\n\n\(digest)\n\n检查时间：\(timestamp)",
+                    config: channels)
+            } catch {
+                failures.append("企业微信推送失败：\(error.localizedDescription)")
+            }
+        }
+        return failures.isEmpty ? nil : failures.joined(separator: "；")
+    }
+
     private func rescheduleTimer() {
         timer?.invalidate()
         timer = nil
@@ -176,6 +211,12 @@ final class QuotaAlertCenter: ObservableObject {
     private static func clock() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
+        return formatter.string(from: Date())
+    }
+
+    private static func stamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
         return formatter.string(from: Date())
     }
 }

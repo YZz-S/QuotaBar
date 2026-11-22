@@ -18,6 +18,7 @@
 		2A000029 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005C /* ModelsView.swift */; };
 		2A00002A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005D /* SettingsView.swift */; };
 		2A00002B /* QuotaAlertCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005E /* QuotaAlertCenter.swift */; };
+		2A00002D /* PushChannels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000063 /* PushChannels.swift */; };
 		2A00002C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2A00005F /* Assets.xcassets */; };
 		2A000028 /* ApiUsageShowWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2A000008 /* ApiUsageShowWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		2A000040 /* ApiUsageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000052 /* ApiUsageWidgetBundle.swift */; };
@@ -73,6 +74,7 @@
 		2A00005C /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 		2A00005D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2A00005E /* QuotaAlertCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaAlertCenter.swift; sourceTree = "<group>"; };
+		2A000063 /* PushChannels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushChannels.swift; sourceTree = "<group>"; };
 		2A00005F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -104,6 +106,7 @@
 				2A00005C /* ModelsView.swift */,
 				2A00005D /* SettingsView.swift */,
 				2A00005E /* QuotaAlertCenter.swift */,
+				2A000063 /* PushChannels.swift */,
 				2A00005F /* Assets.xcassets */,
 			);
 			path = App;
@@ -215,6 +218,7 @@
 				2A000029 /* ModelsView.swift in Sources */,
 				2A00002A /* SettingsView.swift in Sources */,
 				2A00002B /* QuotaAlertCenter.swift in Sources */,
+				2A00002D /* PushChannels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
