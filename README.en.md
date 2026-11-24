@@ -113,27 +113,27 @@ swiftc -O Shared/Models.swift Shared/ProvidersStore.swift Shared/QueryService.sw
 
 # Build the app + widget extension
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project ApiUsageShow.xcodeproj -target ApiUsageShow \
+  xcodebuild -project QuotaBar.xcodeproj -target QuotaBar \
   -configuration Release SYMROOT="$PWD/build" OBJROOT="$PWD/build/obj" build
 
 # Install and register
-cp -R build/Release/ApiUsageShow.app /Applications/
-open /Applications/ApiUsageShow.app
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/ApiUsageShow.app
+cp -R build/Release/QuotaBar.app /Applications/
+open /Applications/QuotaBar.app
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/QuotaBar.app
 ```
 
-Add the widget: right-click the desktop or Notification Center → "Edit Widgets" → search "API Usage".
+Add the widget: right-click the desktop or Notification Center → "Edit Widgets" → search "QuotaBar".
 
 ### Code signing (required, or the widget won't appear)
 
 For a widget to show up in the gallery on macOS 26, both of these must hold:
 
 1. **Signed with a development certificate** (ad-hoc `-` won't do). Xcode → Settings → Accounts, sign in with an Apple ID (a free personal team is enough), then Manage Certificates → create an Apple Development certificate. `DEVELOPMENT_TEAM` in the project must be the certificate's **real Team ID** (the `OU=` from `security find-certificate -c "Apple Development" -p | openssl x509 -noout -subject`) — the identifier in the certificate's display name can differ, and using that one gives you `No signing certificate "Mac Development" found`.
-2. **The widget extension must enable App Sandbox.** `Widget/ApiUsageShowWidget.entitlements` declares `app-sandbox` + `network.client` + `application-groups`; the app itself carries only `application-groups` so it stays unsandboxed and can read the cc-switch database.
+2. **The widget extension must enable App Sandbox.** `Widget/QuotaBarWidget.entitlements` declares `app-sandbox` + `network.client` + `application-groups`; the app itself carries only `application-groups` so it stays unsandboxed and can read the cc-switch database.
 
 **Use your own Team ID**: this repo ships no usable signing identity. Replace three things — `DEVELOPMENT_TEAM` in `project.pbxproj`, the App Group ID in both `.entitlements` files, and the prefix of `AppGroup.identifier` in `Shared/SnapshotCache.swift`. An App Group ID must be prefixed with your own Team ID.
 
-Confirm the extension was registered: `pluginkit -m -v -i com.apiusage.show.widget`
+Confirm the extension was registered: `pluginkit -m -v -i com.quotabar.mac.widget`
 
 ### Windows / WSL (CLI)
 
@@ -173,8 +173,8 @@ Each provider shows where its active credentials come from (which cc-switch entr
 ## Project layout
 
 ```
-ApiUsageShow.xcodeproj/   Hand-written project: app + widget extension targets
-App/                      ApiUsageShowApp (TabView + AppDelegate), StatusView (usage + provider toggles),
+QuotaBar.xcodeproj/   Hand-written project: app + widget extension targets
+App/                      QuotaBarApp (TabView + AppDelegate), StatusView (usage + provider toggles),
                           SettingsView (manual keys + display scope + alerts + push),
                           StatusBarController (menu bar item and menu), QuotaAlertCenter (polling),
                           PushChannels (SMTP / WeCom)

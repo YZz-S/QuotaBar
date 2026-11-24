@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""API Usage Show — Windows 版
+"""QuotaBar — Windows 版
 
-与 macOS 小组件 (ApiUsageShow) 同源的用量查询工具：
+与 macOS 版 QuotaBar 同源的用量查询工具：
   火山方舟 Coding Plan : OpenAPI V4 签名（AK/SK），GetCodingPlanUsage 失败回落 GetAFPUsage
   智谱 GLM Coding Plan : GET /api/monitor/usage/quota/limit，Authorization 裸 key
   DeepSeek             : GET /user/balance，Authorization: Bearer
@@ -44,7 +44,7 @@ KIND_ORDER = ["volcengine", "zhipu", "deepseek", "opencode-go", "commandcode"]
 DISPLAY_NAME = {"volcengine": "火山方舟", "zhipu": "智谱 GLM", "deepseek": "DeepSeek",
                 "opencode-go": "OpenCode Go", "commandcode": "CommandCode"}
 DEFAULT_TIMEOUT = 12
-USER_AGENT = "ApiUsageShow-Windows/1.0"
+USER_AGENT = "QuotaBar-Windows/1.0"
 
 W_5H, W_7D, W_MONTH = "5小时", "7天", "月"
 
@@ -1000,7 +1000,7 @@ def render_bar(style, percent, width=18):
 def render(results, style, credentials, thresholds):
     lines = []
     header_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    lines.append(style.bold(f"== API Usage ({header_time}) =="))
+    lines.append(style.bold(f"== QuotaBar ({header_time}) =="))
     lines.append(style.dim(
         f"凭据: cc-switch 数据库{' + 手动覆盖' if any(c.get('sourceName') == '手动配置' for c in credentials) else ''}"
         f" · 警戒: 火山≥{fmt_pct(thresholds['volc'])}% 智谱≥{fmt_pct(thresholds['zhipu'])}%"
@@ -1164,7 +1164,7 @@ def handle_set_commands(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="API Usage Show（Windows 版）：火山方舟 / 智谱 GLM / DeepSeek / OpenCode Go / CommandCode 用量查询",
+        description="QuotaBar（Windows 版）：火山方舟 / 智谱 GLM / DeepSeek / OpenCode Go / CommandCode 用量查询",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="示例:\n"
                "  api_usage.py                 查询一次并打印\n"

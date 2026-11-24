@@ -1,4 +1,4 @@
-# API Usage Show — Windows 版
+# QuotaBar — Windows 版
 
 与 macOS 小组件同源的命令行工具：查询 **火山方舟 Coding Plan / 智谱 GLM Coding Plan / DeepSeek / OpenCode Go / CommandCode** 五家额度，凭据自动复用 [cc-switch](https://github.com/farion1231/cc-switch) 的配置。仅需 Python 3.10+（纯标准库，零依赖）。
 

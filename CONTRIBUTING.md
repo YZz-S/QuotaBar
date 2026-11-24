@@ -16,7 +16,7 @@ swiftc -O Shared/Models.swift Shared/ProvidersStore.swift Shared/QueryService.sw
 
 # 2) 完整构建（要求两个 target 都通过）
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project ApiUsageShow.xcodeproj -target ApiUsageShow \
+  xcodebuild -project QuotaBar.xcodeproj -target QuotaBar \
   -configuration Release SYMROOT="$PWD/build" OBJROOT="$PWD/build/obj" build
 
 # 3) 改了 Windows 端

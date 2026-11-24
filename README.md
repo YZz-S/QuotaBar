@@ -113,27 +113,27 @@ swiftc -O Shared/Models.swift Shared/ProvidersStore.swift Shared/QueryService.sw
 
 # 构建 App + Widget Extension
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project ApiUsageShow.xcodeproj -target ApiUsageShow \
+  xcodebuild -project QuotaBar.xcodeproj -target QuotaBar \
   -configuration Release SYMROOT="$PWD/build" OBJROOT="$PWD/build/obj" build
 
 # 安装并注册
-cp -R build/Release/ApiUsageShow.app /Applications/
-open /Applications/ApiUsageShow.app
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/ApiUsageShow.app
+cp -R build/Release/QuotaBar.app /Applications/
+open /Applications/QuotaBar.app
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/QuotaBar.app
 ```
 
-添加小组件：桌面或通知中心右键 →「编辑」→ 搜索「API 用量」。
+添加小组件：桌面或通知中心右键 →「编辑」→ 搜索「QuotaBar」。
 
 ### 签名（必读，否则小组件加不上）
 
 macOS 26 上要让小组件出现在小组件库，必须同时满足两点：
 
 1. **开发者证书签名**（ad-hoc `-` 不行）：Xcode → Settings → Accounts 登录 Apple ID（免费个人团队即可）→ Manage Certificates 生成 Apple Development 证书。工程里 `DEVELOPMENT_TEAM` 要填证书的**真实 Team ID**（`security find-certificate -c "Apple Development" -p | openssl x509 -noout -subject` 里的 `OU=`），而不是证书名称括号里的账号标识 —— 两者可能不同，填错会报 `No signing certificate "Mac Development" found`。
-2. **widget 扩展必须开启 App Sandbox**：`Widget/ApiUsageShowWidget.entitlements` 声明 `app-sandbox` + `network.client` + `application-groups`；App 只带 `application-groups`（保持未沙箱以读取 cc-switch 数据库）。
+2. **widget 扩展必须开启 App Sandbox**：`Widget/QuotaBarWidget.entitlements` 声明 `app-sandbox` + `network.client` + `application-groups`；App 只带 `application-groups`（保持未沙箱以读取 cc-switch 数据库）。
 
 **换成你自己的 Team ID**：本仓库不附带可用的签名身份，你需要替换三处 —— `project.pbxproj` 里的 `DEVELOPMENT_TEAM`、两个 `.entitlements` 里的 App Group ID、以及 `Shared/SnapshotCache.swift` 里 `AppGroup.identifier` 的前缀。App Group ID 必须以自己的 Team ID 为前缀。
 
-验证扩展被系统收录：`pluginkit -m -v -i com.apiusage.show.widget`
+验证扩展被系统收录：`pluginkit -m -v -i com.quotabar.mac.widget`
 
 ### Windows / WSL（命令行）
 
@@ -173,8 +173,8 @@ python windows\api_usage.py --list           :: 只看识别到的凭据（脱�
 ## 项目结构
 
 ```
-ApiUsageShow.xcodeproj/   手写工程：App + Widget Extension 两个 target
-App/                      ApiUsageShowApp(TabView + AppDelegate), StatusView(用量 + 供应商勾选),
+QuotaBar.xcodeproj/   手写工程：App + Widget Extension 两个 target
+App/                      QuotaBarApp(TabView + AppDelegate), StatusView(用量 + 供应商勾选),
                           SettingsView(手动 Key + 显示范围 + 警戒 + 推送),
                           StatusBarController(菜单栏项与菜单), QuotaAlertCenter(定时检查),
                           PushChannels(邮件 / 企业微信)
