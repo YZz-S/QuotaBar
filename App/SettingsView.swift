@@ -233,6 +233,30 @@ struct SettingsView: View {
                     Text("在菜单栏显示百分比")
                         .fontWeight(.medium)
                 }
+
+                HStack(spacing: 10) {
+                    Text("菜单栏口径")
+                        .font(.caption)
+                    Picker("", selection: Binding(
+                        get: { prefs.quotaDisplay },
+                        set: { value in
+                            prefs.quotaDisplay = value
+                            persistDisplayPrefs()
+                        })) {
+                        ForEach(QuotaDisplay.allCases, id: \.self) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 140)
+                    Text(prefs.quotaDisplay == .used
+                         ? "数字是已用百分比，越高越危险"
+                         : "数字是剩余百分比，越低越危险")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
                 HStack(spacing: 8) {
                     Text("菜单栏固定显示")
                     Picker("", selection: Binding(

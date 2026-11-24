@@ -1,5 +1,18 @@
 import Foundation
 
+/// 额度显示口径：已用 or 剩余
+enum QuotaDisplay: String, Codable, CaseIterable {
+    case used
+    case remaining
+
+    var label: String {
+        switch self {
+        case .used: return "已用"
+        case .remaining: return "剩余"
+        }
+    }
+}
+
 /// 「显示哪些供应商」的统一偏好（App Group 容器，App / 小组件 / 状态栏共用）。
 /// 未设置（或空集合）视为「全部显示」，这样老用户升级后行为不变。
 struct DisplayPreferences: Codable {
@@ -15,6 +28,8 @@ struct DisplayPreferences: Codable {
     var statusItemWindows: [String] = []
     /// true = 每家供应商各占一个状态栏项（能同时看到 DeepSeek 余额等）；false = 合并为一个
     var statusItemPerProvider: Bool = true
+    /// 菜单栏/图标口径：已用 or 剩余
+    var quotaDisplay: QuotaDisplay = .used
 
     init() {}
 
@@ -27,6 +42,7 @@ struct DisplayPreferences: Codable {
         statusItemFocus = try? c.decodeIfPresent(ProviderKind.self, forKey: .statusItemFocus)
         statusItemWindows = (try? c.decode([String].self, forKey: .statusItemWindows)) ?? []
         statusItemPerProvider = (try? c.decode(Bool.self, forKey: .statusItemPerProvider)) ?? true
+        quotaDisplay = (try? c.decode(QuotaDisplay.self, forKey: .quotaDisplay)) ?? .used
     }
 
     /// 需要参与查询/展示的供应商（按展示顺序）
@@ -64,6 +80,16 @@ struct DisplayPreferences: Codable {
     func isStatusWindowEnabled(_ name: String) -> Bool {
         statusItemWindows.isEmpty || statusItemWindows.contains(name)
     }
+
+    /// 按当前口径取窗口要显示的百分比：已用原样，剩余取 100 - 已用
+    func displayedPercent(_ window: QuotaWindow) -> Double {
+        switch quotaDisplay {
+        case .used: return window.percent
+        case .remaining: return max(0, 100 - window.percent)
+        }
+    }
+
+    var quotaDisplayLabel: String { quotaDisplay.label }
 
     var isAllEnabled: Bool { enabledKinds.isEmpty }
 

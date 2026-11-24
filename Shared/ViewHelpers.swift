@@ -21,11 +21,6 @@ extension ProviderKind {
         case .commandCode: return .indigo
         }
     }
-
-    /// 设置页 / 状态栏菜单里的稳定顺序
-    static var displayOrder: [ProviderKind] {
-        [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
-    }
 }
 
 func levelColor(_ percent: Double) -> Color {

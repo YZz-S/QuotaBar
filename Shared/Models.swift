@@ -81,6 +81,11 @@ enum ProviderKind: String, Codable, CaseIterable {
         default: return true
         }
     }
+
+    /// 展示与遍历的稳定顺序（纯数据层，不依赖 SwiftUI，便于脚本单独编译校验）
+    static var displayOrder: [ProviderKind] {
+        [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
+    }
 }
 
 

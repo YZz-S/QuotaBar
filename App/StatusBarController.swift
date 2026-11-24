@@ -97,9 +97,9 @@ final class StatusBarController: ObservableObject {
             return
         }
         button.image = Self.icon(for: usage.kind)
-        let title = Self.title(for: usage, prefs: prefs)
+        let built = Self.title(for: usage, prefs: prefs)
         button.attributedTitle = prefs.statusItemShowsPercent
-            ? Self.styledTitle(title)
+            ? Self.styledTitle(built.text, usedPercents: built.usedPercents)
             : NSAttributedString(string: "")
         button.toolTip = Self.tooltip(for: usage, prefs: prefs)
     }
@@ -134,30 +134,35 @@ final class StatusBarController: ObservableObject {
         extraItems.removeAll()
     }
 
-    /// 状态栏标题：窗口型拼各窗口百分比（5h 1% 周 3% 月 16%），余额型给金额
-    private static func title(for usage: ProviderUsage, prefs: DisplayPreferences) -> String {
-        guard usage.ok else { return "查询失败" }
+    /// 状态栏标题：窗口型拼各窗口百分比（按当前口径），余额型给金额。
+    /// 同时返回各数字对应的「已用率」，供上色用 —— 显示剩余时 84% 是好事，不能按 84 判成红色。
+    private static func title(for usage: ProviderUsage, prefs: DisplayPreferences) -> (text: String, usedPercents: [Double]) {
+        guard usage.ok else { return ("查询失败", []) }
         let windows = prefs.statusWindows(of: usage)
         if !windows.isEmpty {
-            let parts = windows.map { "\($0.shortName) \($0.percent.percentText)" }
-            return " " + parts.joined(separator: "  ")
+            let parts = windows.map { "\($0.shortName) \(prefs.displayedPercent($0).percentText)" }
+            return (" " + parts.joined(separator: "  "), windows.map(\.percent))
         }
-        if let balance = usage.balanceText { return " " + balance }
-        if let window = usage.primaryWindow { return " " + window.percent.percentText }
-        return ""
+        if let balance = usage.balanceText { return (" " + balance, []) }
+        if let window = usage.primaryWindow {
+            return (" " + prefs.displayedPercent(window).percentText, [window.percent])
+        }
+        return ("", [])
     }
 
-    /// 各窗口按自己的使用率上色，只给数字上色保持菜单栏观感
-    private static func styledTitle(_ title: String) -> NSAttributedString {
+    /// 各数字按对应的「已用率」上色，只给数字上色保持菜单栏观感
+    private static func styledTitle(_ title: String, usedPercents: [Double]) -> NSAttributedString {
         let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         let result = NSMutableAttributedString(string: title, attributes: [
             .font: font, .foregroundColor: NSColor.labelColor,
         ])
-        // 标题形态固定为「 5h 1%  周 3%  月 16%」，逐个百分比按数值重上色
+        // 标题形态固定为「 5h 1%  周 3%  月 16%」，逐个百分比依次取对应的已用率上色
+        var index = 0
         for match in title.matches(of: /(\d+(?:\.\d+)?)%/) {
-            guard let value = Double(String(match.output.1)) else { continue }
+            guard index < usedPercents.count else { break }
             let range = NSRange(match.range, in: title)
-            result.addAttribute(.foregroundColor, value: levelColor(value), range: range)
+            result.addAttribute(.foregroundColor, value: levelColor(usedPercents[index]), range: range)
+            index += 1
         }
         return result
     }
@@ -170,13 +175,17 @@ final class StatusBarController: ObservableObject {
         lines.append(head)
         if let balance = usage.balanceText { lines.append("余额 \(balance)") }
         for window in prefs.statusWindows(of: usage) {
-            var line = "\(window.name) 已用 \(window.percent.percentText) · \(window.remainingText)"
+            // 两种口径都写出来，但顺序随当前选择，读起来不费解
+            let used = window.percent.percentText
+            let remaining = window.remainingText
+            var line = prefs.quotaDisplay == .used
+                ? "\(window.name) 已用 \(used) · \(remaining)"
+                : "\(window.name) \(remaining) · 已用 \(used)"
             if !window.resetCaption.isEmpty { line += " · \(window.resetCaption)" }
             lines.append(line)
         }
         return lines.joined(separator: "\n")
     }
-
     /// 菜单栏图标：SF Symbol 模板图（自动适配深浅色）
     private static func icon(for kind: ProviderKind?) -> NSImage? {
         let name = kind?.iconSymbol ?? "gauge.with.dots.needle.33percent"
@@ -212,7 +221,7 @@ final class StatusBarController: ObservableObject {
             menu.addItem(disabled("暂无数据，打开主窗口查询一次"))
         }
         for usage in lastUsages {
-            let item = NSMenuItem(title: Self.menuTitle(usage), action: #selector(openConsole(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: Self.menuTitle(usage, prefs: prefs), action: #selector(openConsole(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = usage.kind.rawValue
             item.image = smallIcon(usage.kind, level: usage.primaryWindow?.percent)
@@ -246,6 +255,16 @@ final class StatusBarController: ObservableObject {
         textItem.target = self
         textItem.state = prefs.statusItemShowsPercent ? .on : .off
         menu.addItem(textItem)
+
+        // 已用 / 剩余 口径切换（顶部直接给两项，点一下即切，不用进子菜单）
+        let usedItem = NSMenuItem(title: "显示已用额度", action: #selector(setDisplayUsed), keyEquivalent: "")
+        usedItem.target = self
+        usedItem.state = prefs.quotaDisplay == .used ? .on : .off
+        menu.addItem(usedItem)
+        let remainingItem = NSMenuItem(title: "显示剩余额度", action: #selector(setDisplayRemaining), keyEquivalent: "")
+        remainingItem.target = self
+        remainingItem.state = prefs.quotaDisplay == .remaining ? .on : .off
+        menu.addItem(remainingItem)
 
         // 菜单栏显示哪些窗口（余额型供应商不受此项影响）
         let windowItem = NSMenuItem(title: "菜单栏显示窗口", action: nil, keyEquivalent: "")
@@ -305,13 +324,13 @@ final class StatusBarController: ObservableObject {
         return menu
     }
 
-    private static func menuTitle(_ usage: ProviderUsage) -> String {
+    private static func menuTitle(_ usage: ProviderUsage, prefs: DisplayPreferences) -> String {
         guard usage.ok else { return "\(usage.kind.displayName) · 查询失败" }
         var parts: [String] = [usage.kind.displayName]
         if let subtitle = usage.subtitle, !subtitle.isEmpty { parts.append(subtitle) }
         // 全部窗口都列出来（原来只给主窗口，5 小时之后的周/月看不到）
         for window in usage.windowsInDisplayOrder {
-            parts.append("\(window.shortName) \(window.percent.percentText)")
+            parts.append("\(window.shortName) \(prefs.displayedPercent(window).percentText)")
         }
         // 余额型（DeepSeek / CommandCode credits）单独给一行金额
         if let balance = usage.balanceText { parts.append("余额 \(balance)") }
@@ -378,6 +397,20 @@ final class StatusBarController: ObservableObject {
         guard let name = sender.representedObject as? String else { return }
         var prefs = DisplayStore.load()
         prefs.setStatusWindow(name, !prefs.isStatusWindowEnabled(name))
+        persistAndBroadcast(prefs)
+    }
+
+    @objc private func setDisplayUsed() {
+        var prefs = DisplayStore.load()
+        guard prefs.quotaDisplay != .used else { return }
+        prefs.quotaDisplay = .used
+        persistAndBroadcast(prefs)
+    }
+
+    @objc private func setDisplayRemaining() {
+        var prefs = DisplayStore.load()
+        guard prefs.quotaDisplay != .remaining else { return }
+        prefs.quotaDisplay = .remaining
         persistAndBroadcast(prefs)
     }
 
