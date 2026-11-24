@@ -1042,6 +1042,8 @@ def credential_brief(c):
         return f"AK {masked(c.get('accessKey'))} / SK {masked(c.get('secretKey'))} · {c.get('region')}"
     if kind == "zhipu":
         return f"apiKey {masked(c.get('apiKey'))}"
+    if kind in ("opencode-go", "commandcode"):
+        return f"apiKey {masked(c.get('apiKey'))}"
     return f"token {masked(c.get('bearerToken'))}"
 
 
