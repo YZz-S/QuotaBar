@@ -2,11 +2,11 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct ApiUsageShowApp: App {
+struct QuotaBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        WindowGroup("API Usage 小组件") {
+        WindowGroup("QuotaBar") {
             TabView {
                 StatusView()
                     .tabItem { Label("用量", systemImage: "gauge.with.dots.needle.33percent") }
@@ -22,6 +22,8 @@ struct ApiUsageShowApp: App {
 /// 状态栏由 AppDelegate 管理（SwiftUI App 生命周期里没有 NSStatusItem 的天然挂点）
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 改名换了 App Group，先把旧容器的凭据/偏好搬过来，再让任何代码去读容器
+        AppGroup.migrateFromLegacyGroupIfNeeded()
         Task { @MainActor in
             // 状态栏常驻：图标 + 主窗口百分比，点开是每家明细
             StatusBarController.shared.start()

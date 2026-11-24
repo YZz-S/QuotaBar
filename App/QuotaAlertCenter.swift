@@ -220,7 +220,7 @@ final class QuotaAlertCenter: ObservableObject {
         if channels.smtpEnabled {
             do {
                 try await SMTPSender.send(
-                    subject: "API 用量警戒：\(alerts.count) 项超阈值",
+                    subject: "QuotaBar 警戒：\(alerts.count) 项超阈值",
                     body: digest + "\n\n——\n检查时间：\(timestamp)",
                     config: channels)
             } catch {
@@ -230,7 +230,7 @@ final class QuotaAlertCenter: ObservableObject {
         if channels.wecomEnabled {
             do {
                 try await WeComSender.send(
-                    text: "【API 用量警戒】\(alerts.count) 项超阈值\n\n\(digest)\n\n检查时间：\(timestamp)",
+                    text: "【QuotaBar 警戒】\(alerts.count) 项超阈值\n\n\(digest)\n\n检查时间：\(timestamp)",
                     config: channels)
             } catch {
                 failures.append("企业微信推送失败：\(error.localizedDescription)")

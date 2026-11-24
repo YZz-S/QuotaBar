@@ -23,7 +23,7 @@ struct StatusView: View {
                         .font(.title2)
                         .foregroundStyle(.blue)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("API 用量小组件").font(.headline)
+                        Text("QuotaBar").font(.headline)
                         Text("凭据自动来自 cc-switch（\(ProvidersStore.dbURL.path)）")
                             .font(.caption2)
                             .foregroundStyle(.secondary)

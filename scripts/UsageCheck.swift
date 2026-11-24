@@ -4,7 +4,7 @@ import Foundation
 @main
 struct UsageCheckCLI {
     static func main() async {
-        print("== API Usage 查询自检 ==")
+        print("== QuotaBar 查询自检 ==")
         print("cc-switch 数据库: \(ProvidersStore.dbURL.path)")
         let credentials = ProvidersStore.loadCredentials()
         guard !credentials.isEmpty else {

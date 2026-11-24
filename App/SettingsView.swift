@@ -3,9 +3,9 @@ import WidgetKit
 
 extension Notification.Name {
     /// 设置页保存了手动凭据，「用量」页据此重新识别
-    static let credentialsChanged = Notification.Name("ApiUsageShow.credentialsChanged")
+    static let credentialsChanged = Notification.Name("QuotaBar.credentialsChanged")
     /// 「显示哪些供应商」偏好变化，App / 状态栏据此刷新
-    static let displayPreferencesChanged = Notification.Name("ApiUsageShow.displayPreferencesChanged")
+    static let displayPreferencesChanged = Notification.Name("QuotaBar.displayPreferencesChanged")
 }
 
 /// 「设置」页：手动填写 API Key（覆盖 cc-switch 自动识别）+ 警戒通知
@@ -372,7 +372,7 @@ struct SettingsView: View {
                         .fontWeight(.medium)
                 }
                 if alerts.authorizationDenied {
-                    Label("系统未授权通知：请到 系统设置 → 通知 → API Usage 打开允许通知", systemImage: "bell.slash")
+                    Label("系统未授权通知：请到 系统设置 → 通知 → QuotaBar 打开允许通知", systemImage: "bell.slash")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
@@ -596,8 +596,8 @@ struct SettingsView: View {
         PushChannelsStore.save(channels)
         do {
             try await SMTPSender.send(
-                subject: "API Usage 测试邮件",
-                body: "这是一封来自 API Usage 的测试邮件，收到即说明邮件推送配置正确。",
+                subject: "QuotaBar 测试邮件",
+                body: "这是一封来自 QuotaBar 的测试邮件，收到即说明邮件推送配置正确。",
                 config: channels)
             smtpTestText = "已发送，请到收件箱（含垃圾箱）确认"
             smtpTestOK = true
@@ -612,7 +612,7 @@ struct SettingsView: View {
         defer { testingWeCom = false }
         PushChannelsStore.save(channels)
         do {
-            try await WeComSender.send(text: "【API Usage】测试消息：企业微信推送配置正确 ✓", config: channels)
+            try await WeComSender.send(text: "【QuotaBar】测试消息：企业微信推送配置正确 ✓", config: channels)
             wecomTestText = "已发送，请到群里确认"
             wecomTestOK = true
         } catch {

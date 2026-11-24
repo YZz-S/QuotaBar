@@ -28,7 +28,7 @@ private struct EmptyUsageView: View {
             Image(systemName: "tray")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("暂无数据，打开 API Usage 应用")
+            Text("暂无数据，打开 QuotaBar 应用")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -207,7 +207,7 @@ struct LargeUsageView: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
-                    Text("API 用量")
+                    Text("QuotaBar")
                         .font(.system(size: 13, weight: .bold))
                     Spacer()
                     Text((usedCache ? "缓存 · " : "更新 ") + Self.timeText(date))
@@ -339,7 +339,7 @@ struct SmallUsageView: View {
                 Text("暂无数据")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("打开 API Usage 应用")
+                Text("打开 QuotaBar 应用")
                     .font(.system(size: 8.5))
                     .foregroundStyle(.tertiary)
                 Spacer()

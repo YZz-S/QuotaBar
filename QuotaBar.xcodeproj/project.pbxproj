@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2A000020 /* ApiUsageShowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000050 /* ApiUsageShowApp.swift */; };
+		2A000020 /* QuotaBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000050 /* QuotaBarApp.swift */; };
 		2A000021 /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000051 /* StatusView.swift */; };
 		2A000022 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000056 /* Models.swift */; };
 		2A000023 /* ProvidersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000057 /* ProvidersStore.swift */; };
@@ -18,9 +18,9 @@
 		2A00002B /* QuotaAlertCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005E /* QuotaAlertCenter.swift */; };
 		2A00002D /* PushChannels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000063 /* PushChannels.swift */; };
 		2A00002C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2A00005F /* Assets.xcassets */; };
-		2A000028 /* ApiUsageShowWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2A000008 /* ApiUsageShowWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		2A000040 /* ApiUsageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000052 /* ApiUsageWidgetBundle.swift */; };
-		2A000041 /* ApiUsageWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000053 /* ApiUsageWidget.swift */; };
+		2A000028 /* QuotaBarWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2A000008 /* QuotaBarWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		2A000040 /* QuotaBarWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000052 /* QuotaBarWidgetBundle.swift */; };
+		2A000041 /* QuotaBarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000053 /* QuotaBarWidget.swift */; };
 		2A000042 /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000054 /* WidgetViews.swift */; };
 		2A000043 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000056 /* Models.swift */; };
 		2A000044 /* ProvidersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000057 /* ProvidersStore.swift */; };
@@ -38,7 +38,7 @@
 			containerPortal = 2A000001 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 2A000030;
-			remoteInfo = ApiUsageShowWidget;
+			remoteInfo = QuotaBarWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -49,7 +49,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				2A000028 /* ApiUsageShowWidget.appex in Embed Foundation Extensions */,
+				2A000028 /* QuotaBarWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -57,12 +57,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2A000007 /* ApiUsageShow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ApiUsageShow.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2A000008 /* ApiUsageShowWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ApiUsageShowWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		2A000050 /* ApiUsageShowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiUsageShowApp.swift; sourceTree = "<group>"; };
+		2A000007 /* QuotaBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuotaBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A000008 /* QuotaBarWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = QuotaBarWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A000050 /* QuotaBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarApp.swift; sourceTree = "<group>"; };
 		2A000051 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
-		2A000052 /* ApiUsageWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiUsageWidgetBundle.swift; sourceTree = "<group>"; };
-		2A000053 /* ApiUsageWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiUsageWidget.swift; sourceTree = "<group>"; };
+		2A000052 /* QuotaBarWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarWidgetBundle.swift; sourceTree = "<group>"; };
+		2A000053 /* QuotaBarWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarWidget.swift; sourceTree = "<group>"; };
 		2A000054 /* WidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
 		2A000055 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2A000056 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -92,8 +92,8 @@
 		2A000006 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2A000007 /* ApiUsageShow.app */,
-				2A000008 /* ApiUsageShowWidget.appex */,
+				2A000007 /* QuotaBar.app */,
+				2A000008 /* QuotaBarWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -101,7 +101,7 @@
 		2A000060 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				2A000050 /* ApiUsageShowApp.swift */,
+				2A000050 /* QuotaBarApp.swift */,
 				2A000051 /* StatusView.swift */,
 				2A00005D /* SettingsView.swift */,
 				2A00005E /* QuotaAlertCenter.swift */,
@@ -115,8 +115,8 @@
 		2A000061 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
-				2A000052 /* ApiUsageWidgetBundle.swift */,
-				2A000053 /* ApiUsageWidget.swift */,
+				2A000052 /* QuotaBarWidgetBundle.swift */,
+				2A000053 /* QuotaBarWidget.swift */,
 				2A000054 /* WidgetViews.swift */,
 				2A000055 /* Info.plist */,
 			);
@@ -139,9 +139,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2A000010 /* ApiUsageShow */ = {
+		2A000010 /* QuotaBar */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2A000011 /* Build configuration list for PBXNativeTarget "ApiUsageShow" */;
+			buildConfigurationList = 2A000011 /* Build configuration list for PBXNativeTarget "QuotaBar" */;
 			buildPhases = (
 				2A000014 /* Sources */,
 				2A000016 /* Resources */,
@@ -152,14 +152,14 @@
 			dependencies = (
 				2A000071 /* PBXTargetDependency */,
 			);
-			name = ApiUsageShow;
-			productName = ApiUsageShow;
-			productReference = 2A000007 /* ApiUsageShow.app */;
+			name = QuotaBar;
+			productName = QuotaBar;
+			productReference = 2A000007 /* QuotaBar.app */;
 			productType = "com.apple.product-type.application";
 		};
-		2A000030 /* ApiUsageShowWidget */ = {
+		2A000030 /* QuotaBarWidget */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2A000031 /* Build configuration list for PBXNativeTarget "ApiUsageShowWidget" */;
+			buildConfigurationList = 2A000031 /* Build configuration list for PBXNativeTarget "QuotaBarWidget" */;
 			buildPhases = (
 				2A000034 /* Sources */,
 			);
@@ -167,9 +167,9 @@
 			);
 			dependencies = (
 			);
-			name = ApiUsageShowWidget;
-			productName = ApiUsageShowWidget;
-			productReference = 2A000008 /* ApiUsageShowWidget.appex */;
+			name = QuotaBarWidget;
+			productName = QuotaBarWidget;
+			productReference = 2A000008 /* QuotaBarWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -182,7 +182,7 @@
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 2660;
 			};
-			buildConfigurationList = 2A000002 /* Build configuration list for PBXProject "ApiUsageShow" */;
+			buildConfigurationList = 2A000002 /* Build configuration list for PBXProject "QuotaBar" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -196,8 +196,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2A000010 /* ApiUsageShow */,
-				2A000030 /* ApiUsageShowWidget */,
+				2A000010 /* QuotaBar */,
+				2A000030 /* QuotaBarWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -207,7 +207,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2A000020 /* ApiUsageShowApp.swift in Sources */,
+				2A000020 /* QuotaBarApp.swift in Sources */,
 				2A000021 /* StatusView.swift in Sources */,
 				2A000022 /* Models.swift in Sources */,
 				2A000023 /* ProvidersStore.swift in Sources */,
@@ -226,8 +226,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2A000040 /* ApiUsageWidgetBundle.swift in Sources */,
-				2A000041 /* ApiUsageWidget.swift in Sources */,
+				2A000040 /* QuotaBarWidgetBundle.swift in Sources */,
+				2A000041 /* QuotaBarWidget.swift in Sources */,
 				2A000042 /* WidgetViews.swift in Sources */,
 				2A000043 /* Models.swift in Sources */,
 				2A000044 /* ProvidersStore.swift in Sources */,
@@ -254,7 +254,7 @@
 /* Begin PBXTargetDependency section */
 		2A000071 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 2A000030 /* ApiUsageShowWidget */;
+			target = 2A000030 /* QuotaBarWidget */;
 			targetProxy = 2A000070 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -363,21 +363,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = App/ApiUsageShow.entitlements;
+				CODE_SIGN_ENTITLEMENTS = App/QuotaBar.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = D35P9V7J8X;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "API Usage";
+				INFOPLIST_KEY_CFBundleDisplayName = "QuotaBar";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show;
+				PRODUCT_BUNDLE_IDENTIFIER = com.quotabar.mac;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -387,21 +387,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = App/ApiUsageShow.entitlements;
+				CODE_SIGN_ENTITLEMENTS = App/QuotaBar.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = D35P9V7J8X;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "API Usage";
+				INFOPLIST_KEY_CFBundleDisplayName = "QuotaBar";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show;
+				PRODUCT_BUNDLE_IDENTIFIER = com.quotabar.mac;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -411,7 +411,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = Widget/ApiUsageShowWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Widget/QuotaBarWidget.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -424,7 +424,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show.widget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.quotabar.mac.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -435,7 +435,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_ENTITLEMENTS = Widget/ApiUsageShowWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Widget/QuotaBarWidget.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -448,7 +448,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apiusage.show.widget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.quotabar.mac.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -457,7 +457,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2A000002 /* Build configuration list for PBXProject "ApiUsageShow" */ = {
+		2A000002 /* Build configuration list for PBXProject "QuotaBar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A000003 /* Debug */,
@@ -466,7 +466,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2A000011 /* Build configuration list for PBXNativeTarget "ApiUsageShow" */ = {
+		2A000011 /* Build configuration list for PBXNativeTarget "QuotaBar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A000012 /* Debug */,
@@ -475,7 +475,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2A000031 /* Build configuration list for PBXNativeTarget "ApiUsageShowWidget" */ = {
+		2A000031 /* Build configuration list for PBXNativeTarget "QuotaBarWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2A000032 /* Debug */,

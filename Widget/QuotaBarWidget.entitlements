@@ -8,7 +8,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>D35P9V7J8X.group.ApiUsageShow</string>
+		<string>D35P9V7J8X.group.QuotaBar</string>
 	</array>
 </dict>
 </plist>

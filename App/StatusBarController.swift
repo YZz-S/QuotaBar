@@ -93,7 +93,7 @@ final class StatusBarController: ObservableObject {
         guard let usage else {
             button.attributedTitle = NSAttributedString(string: "")
             button.image = Self.icon(for: nil)
-            button.toolTip = "API 用量：暂无数据"
+            button.toolTip = "QuotaBar：暂无数据"
             return
         }
         button.image = Self.icon(for: usage.kind)
@@ -313,7 +313,7 @@ final class StatusBarController: ObservableObject {
         open.target = self
         menu.addItem(open)
 
-        let quit = NSMenuItem(title: "退出 API Usage", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "退出 QuotaBar", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 
@@ -461,5 +461,5 @@ final class StatusBarController: ObservableObject {
 
 extension Notification.Name {
     /// 快照变化，状态栏据此重画（由 App 查询完成 / 偏好变化时发出）
-    static let statusBarShouldRefresh = Notification.Name("ApiUsageShow.statusBarShouldRefresh")
+    static let statusBarShouldRefresh = Notification.Name("QuotaBar.statusBarShouldRefresh")
 }

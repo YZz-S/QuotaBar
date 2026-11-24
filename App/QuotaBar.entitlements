@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
+		<string>D35P9V7J8X.group.QuotaBar</string>
+		<!-- 迁移用：读旧容器的凭据/偏好。迁移完成后可删除此行 -->
 		<string>D35P9V7J8X.group.ApiUsageShow</string>
 	</array>
 </dict>

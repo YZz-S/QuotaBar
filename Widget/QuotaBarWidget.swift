@@ -5,7 +5,7 @@ import AppIntents
 /// 小组件上的手动刷新按钮：查询后写快照，系统随后自动重载时间线，
 /// getTimeline 发现快照很新就直接复用，不再重复请求。
 struct RefreshUsageIntent: AppIntent {
-    static let title: LocalizedStringResource = "刷新 API 用量"
+    static let title: LocalizedStringResource = "刷新 QuotaBar"
     static let description = IntentDescription("重新查询已勾选的供应商额度并更新小组件")
 
     func perform() async throws -> some IntentResult {
@@ -96,11 +96,11 @@ struct UsageTimelineProvider: TimelineProvider {
 
 struct ApiUsageWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "ApiUsageShowWidget", provider: UsageTimelineProvider()) { entry in
+        StaticConfiguration(kind: "QuotaBarWidget", provider: UsageTimelineProvider()) { entry in
             ApiUsageWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("API 用量")
-        .description("火山方舟 · 智谱 GLM 的 5小时 / 7天 / 月额度与重置时间，DeepSeek 余额")
+        .configurationDisplayName("QuotaBar")
+        .description("五家 AI 编程订阅的额度与重置时间：火山方舟、智谱 GLM、DeepSeek、OpenCode Go、CommandCode")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
