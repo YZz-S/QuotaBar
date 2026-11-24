@@ -4,6 +4,8 @@
 
 > macOS 菜单栏 + 桌面小组件 + Windows 命令行，一眼看清你所有 AI 编程订阅还剩多少。
 
+![用量页](images/usage.png)
+
 把火山方舟、智谱 GLM、DeepSeek、OpenCode Go、CommandCode 的额度集中到一个地方：菜单栏常驻数字、桌面小组件、超额警戒通知。凭据自动复用 [cc-switch](https://github.com/farion1231/cc-switch)，零配置。
 
 **零第三方依赖**：Swift 端只用系统框架（SwiftUI / AppKit / WidgetKit / CryptoKit / SQLite3），Windows 端只用 Python 标准库。
@@ -34,6 +36,10 @@
 
 常驻菜单栏，图标 + 用量数值，按使用率上色（<50% 绿 / ≥50% 橙 / ≥80% 红）。
 
+<img src="images/menubar@2x.png" alt="菜单栏" width="490">
+
+上图是「显示剩余额度」模式：每家一个菜单栏项，依次是 CommandCode、OpenCode Go 与 DeepSeek 余额。
+
 - **每家单独一个菜单栏项**（默认）：DeepSeek 余额 `¥28.31`、OpenCode Go `5h 1% 周 3% 月 16%`、CommandCode `5h 0.2% 周 51% 月 44%` 可同时看到
 - 或合并为一项，自动显示使用率最高的那家
 - 点开菜单：每家明细（所有窗口 + 余额 + 重置倒计时）、切换显示项、立即刷新、直达控制台
@@ -58,6 +64,10 @@
 - 默认**未勾选就不发请求** —— 省流量，也避免把没订阅的渠道刷成一片红色失败；想留数据但不展示时，打开「未勾选的供应商也照常查询」
 - 全部取消勾选等价于「全部显示」，不会出现空态
 - 菜单栏还能单独选「显示哪些窗口」（5小时 / 7天 / 月 任选）
+
+| 显示范围与菜单栏口径 | 警戒阈值与推送渠道 |
+|---|---|
+| ![设置：菜单栏与显示范围](images/settings-display.png) | ![设置：警戒与推送](images/settings-alerts.png) |
 
 ---
 
@@ -147,6 +157,10 @@ python windows\api_usage.py --list           :: 只看识别到的凭据（脱�
 | CommandCode | `api_key`，且 `usage_script.codingPlanProvider == "command_code"` |
 
 **备选：App 设置页手动填写。** 手动配置优先于自动识别，写入同一 App Group 容器。适合 cc-switch 里没配、或想单独用另一把 key 的情况。
+
+![设置：手动填写 Key](images/settings-keys.png)
+
+每家会显示当前生效的来源（cc-switch 的哪个 provider，或「手动配置」），留空就沿用自动识别。
 
 ---
 

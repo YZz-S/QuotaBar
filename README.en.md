@@ -4,6 +4,8 @@
 
 > macOS menu bar + desktop widget + Windows CLI — see what's left on all your AI coding subscriptions at a glance.
 
+![Usage tab](images/usage.png)
+
 Collects quota from Volcengine Ark, Zhipu GLM, DeepSeek, OpenCode Go and CommandCode into one place: a persistent menu bar readout, desktop widgets, and low-quota alerts. Credentials are picked up automatically from [cc-switch](https://github.com/farion1231/cc-switch) — zero configuration.
 
 **Zero third-party dependencies.** The Swift side uses only system frameworks (SwiftUI / AppKit / WidgetKit / CryptoKit / SQLite3). The Windows side uses only the Python standard library.
@@ -34,6 +36,10 @@ Treating the remaining pool as the total (`spent ÷ remaining`) badly overstates
 
 Always resident: an icon plus usage numbers, colored by utilization (<50% green / ≥50% orange / ≥80% red).
 
+<img src="images/menubar@2x.png" alt="Menu bar" width="490">
+
+The capture above is in "remaining" mode: one menu bar item per provider — CommandCode, OpenCode Go, and DeepSeek's balance.
+
 - **One menu bar item per provider** (default) — you can see DeepSeek's balance `¥28.31`, OpenCode Go's `5h 1% · 7d 3% · 30d 16%`, and CommandCode's `5h 0.2% · 7d 51% · 30d 44%` simultaneously
 - Or merge everything into a single item that shows the highest-utilization provider
 - Click the menu for per-provider detail (every window, balance, reset countdown), display toggles, refresh, and direct links to each console
@@ -58,6 +64,10 @@ Unsubscribed services don't have to appear anywhere:
 - By default **unselected providers aren't queried at all** — saves traffic and avoids painting services you don't have in red; turn on "query unselected providers too" if you want the data without the clutter
 - Deselecting everything means "show all" — you can never end up with an empty state
 - The menu bar has its own window filter (5h / 7d / 30d, any combination)
+
+| Display scope & menu bar mode | Alert thresholds & push channels |
+|---|---|
+| ![Settings: menu bar and display scope](images/settings-display.png) | ![Settings: alerts and push](images/settings-alerts.png) |
 
 ---
 
@@ -147,6 +157,10 @@ See [windows/README-WINDOWS.md](windows/README-WINDOWS.md). The menu bar and wid
 | CommandCode | `api_key`, with `usage_script.codingPlanProvider == "command_code"` |
 
 **Fallback: enter keys manually in Settings.** Manual entries override discovery and are written to the same App Group container — handy when a provider isn't in cc-switch or you want to use a different key here.
+
+![Settings: manual keys](images/settings-keys.png)
+
+Each provider shows where its active credentials come from (which cc-switch entry, or "manual"); leave a field blank to keep using discovery.
 
 ---
 
