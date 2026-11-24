@@ -4,6 +4,8 @@ import WidgetKit
 extension Notification.Name {
     /// 设置页保存了手动凭据，「用量」页据此重新识别
     static let credentialsChanged = Notification.Name("ApiUsageShow.credentialsChanged")
+    /// 「显示哪些供应商」偏好变化，App / 状态栏据此刷新
+    static let displayPreferencesChanged = Notification.Name("ApiUsageShow.displayPreferencesChanged")
 }
 
 /// 「设置」页：手动填写 API Key（覆盖 cc-switch 自动识别）+ 警戒通知
@@ -16,6 +18,9 @@ struct SettingsView: View {
     @State private var zhipuApiKey = ""
     @State private var zhipuBaseUrl = ""
     @State private var deepseekToken = ""
+    @State private var openCodeKey = ""
+    @State private var commandCodeKey = ""
+    @State private var prefs = DisplayStore.load()
     @State private var effective: [ProviderCredentials] = []
     @State private var saveMessage = ""
     @State private var launchAtLogin = false
@@ -45,6 +50,7 @@ struct SettingsView: View {
                 }
 
                 credentialsSection
+                statusBarSection
                 notificationSection
                 pushChannelsSection
             }
@@ -53,6 +59,7 @@ struct SettingsView: View {
         .onAppear {
             loadManualFields()
             refreshEffective()
+            prefs = DisplayStore.load()
             launchAtLogin = alerts.launchAtLogin
             channels = PushChannelsStore.load()
             alerts.start()
@@ -77,6 +84,14 @@ struct SettingsView: View {
                 Divider()
                 providerForm(.deepseek) {
                     SecureField("API Key（sk-…）", text: $deepseekToken)
+                }
+                Divider()
+                providerForm(.openCodeGo) {
+                    SecureField("API Key（sk-…，opencode.ai/console；cc-switch 未配置时在这里填）", text: $openCodeKey)
+                }
+                Divider()
+                providerForm(.commandCode) {
+                    SecureField("API Key（commandcode.ai › Studio › API Keys）", text: $commandCodeKey)
                 }
                 HStack(spacing: 10) {
                     Button("保存手动配置") { saveManual() }
@@ -138,6 +153,10 @@ struct SettingsView: View {
                 zhipuBaseUrl = manual.baseUrl ?? ""
             case .deepseek:
                 deepseekToken = manual.bearerToken ?? ""
+            case .openCodeGo:
+                openCodeKey = manual.apiKey ?? ""
+            case .commandCode:
+                commandCodeKey = manual.apiKey ?? ""
             }
         }
     }
@@ -167,6 +186,16 @@ struct SettingsView: View {
             list.append(ProviderCredentials(kind: .deepseek, sourceName: ProvidersStore.manualSourceName,
                                             bearerToken: token))
         }
+        let openCode = openCodeKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !openCode.isEmpty {
+            list.append(ProviderCredentials(kind: .openCodeGo, sourceName: ProvidersStore.manualSourceName,
+                                            apiKey: openCode))
+        }
+        let commandCode = commandCodeKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !commandCode.isEmpty {
+            list.append(ProviderCredentials(kind: .commandCode, sourceName: ProvidersStore.manualSourceName,
+                                            apiKey: commandCode))
+        }
         ProvidersStore.saveManual(list)
         applyAndNotify()
         saveMessage = list.isEmpty ? "已清空，沿用 cc-switch 自动识别" : "已保存 \(list.count) 项手动配置"
@@ -176,6 +205,7 @@ struct SettingsView: View {
         volcAccessKey = ""; volcSecretKey = ""; volcRegion = ""
         zhipuApiKey = ""; zhipuBaseUrl = ""
         deepseekToken = ""
+        openCodeKey = ""; commandCodeKey = ""
         ProvidersStore.saveManual([])
         applyAndNotify()
         saveMessage = "已清空，沿用 cc-switch 自动识别"
@@ -187,6 +217,122 @@ struct SettingsView: View {
         effective = merged
         WidgetCenter.shared.reloadAllTimelines()
         NotificationCenter.default.post(name: .credentialsChanged, object: nil)
+    }
+
+    // MARK: - 状态栏
+
+    private var statusBarSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: Binding(
+                    get: { prefs.statusItemShowsPercent },
+                    set: { on in
+                        prefs.statusItemShowsPercent = on
+                        persistDisplayPrefs()
+                    })) {
+                    Text("在菜单栏显示百分比")
+                        .fontWeight(.medium)
+                }
+                HStack(spacing: 8) {
+                    Text("菜单栏固定显示")
+                    Picker("", selection: Binding(
+                        get: { prefs.statusItemFocus?.rawValue ?? "" },
+                        set: { raw in
+                            prefs.statusItemFocus = raw.isEmpty ? nil : ProviderKind(rawValue: raw)
+                            persistDisplayPrefs()
+                        })) {
+                        Text("自动（使用率最高）").tag("")
+                        ForEach(ProviderKind.displayOrder.filter { prefs.isEnabled($0) }, id: \.self) { kind in
+                            Text(kind.displayName).tag(kind.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 180)
+                    Spacer()
+                }
+                .font(.caption)
+
+                HStack(spacing: 8) {
+                    Text("菜单栏显示窗口")
+                        .font(.caption)
+                    ForEach([QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly], id: \.self) { name in
+                        Toggle(name, isOn: Binding(
+                            get: { prefs.isStatusWindowEnabled(name) },
+                            set: { on in
+                                prefs.setStatusWindow(name, on)
+                                persistDisplayPrefs()
+                            }))
+                            .toggleStyle(.checkbox)
+                            .font(.caption)
+                    }
+                    Spacer()
+                }
+
+                Toggle(isOn: Binding(
+                    get: { prefs.statusItemPerProvider },
+                    set: { on in
+                        prefs.statusItemPerProvider = on
+                        persistDisplayPrefs()
+                    })) {
+                    Text("每家供应商各占一个菜单栏项（可同时看到 DeepSeek 余额）")
+                        .font(.caption)
+                }
+                .toggleStyle(.checkbox)
+
+                Text("显示哪些供应商")
+                    .font(.caption.weight(.semibold))
+                VStack(spacing: 4) {
+                    ForEach(ProviderKind.displayOrder, id: \.self) { kind in
+                        let configured = effective.contains { $0.kind == kind }
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(kind.brandColor)
+                                .frame(width: 7, height: 7)
+                            Toggle(kind.displayName, isOn: Binding(
+                                get: { prefs.isEnabled(kind) },
+                                set: { on in
+                                    prefs.setEnabled(kind, on)
+                                    persistDisplayPrefs()
+                                }))
+                                .toggleStyle(.checkbox)
+                                .font(.caption)
+                                .disabled(!configured)
+                            if !configured {
+                                Text("（cc-switch 未配置）")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+                Toggle(isOn: Binding(
+                    get: { prefs.queryUnselected },
+                    set: { on in
+                        prefs.queryUnselected = on
+                        persistDisplayPrefs()
+                    })) {
+                    Text("未勾选的供应商也照常查询（只是不显示）")
+                        .font(.caption)
+                }
+                .toggleStyle(.checkbox)
+
+                Text("勾选结果同时作用于「用量」页、三个尺寸的小组件与菜单栏。取消勾选后连请求都不发，省流量也避免把没订阅的渠道刷成红色失败。关掉主窗口应用仍在菜单栏常驻；菜单里可直接切换显示项与固定项。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label("菜单栏与显示范围", systemImage: "menubar.rectangle")
+                .font(.subheadline.weight(.semibold))
+        }
+    }
+
+    private func persistDisplayPrefs() {
+        DisplayStore.save(prefs)
+        NotificationCenter.default.post(name: .displayPreferencesChanged, object: nil)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - 警戒通知
@@ -213,6 +359,12 @@ struct SettingsView: View {
                 thresholdSlider("智谱 GLM 任一窗口使用率 ≥", value: Binding(
                     get: { alerts.config.zhipuThreshold },
                     set: { alerts.config.zhipuThreshold = $0 }), color: ProviderKind.zhipu.brandColor)
+                thresholdSlider("OpenCode Go 任一窗口使用率 ≥", value: Binding(
+                    get: { alerts.config.openCodeThreshold },
+                    set: { alerts.config.openCodeThreshold = $0 }), color: ProviderKind.openCodeGo.brandColor)
+                thresholdSlider("CommandCode 任一窗口使用率 ≥", value: Binding(
+                    get: { alerts.config.commandCodeThreshold },
+                    set: { alerts.config.commandCodeThreshold = $0 }), color: ProviderKind.commandCode.brandColor)
 
                 HStack(spacing: 8) {
                     Image(systemName: ProviderKind.deepseek.iconSymbol)

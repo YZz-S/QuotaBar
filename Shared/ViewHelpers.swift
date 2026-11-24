@@ -7,6 +7,8 @@ extension ProviderKind {
         case .volcengine: return "flame.fill"
         case .zhipu: return "sparkles"
         case .deepseek: return "yensign.circle.fill"
+        case .openCodeGo: return "chevron.left.forwardslash.chevron.right"
+        case .commandCode: return "terminal.fill"
         }
     }
 
@@ -15,7 +17,14 @@ extension ProviderKind {
         case .volcengine: return .orange
         case .zhipu: return .blue
         case .deepseek: return .purple
+        case .openCodeGo: return .teal
+        case .commandCode: return .indigo
         }
+    }
+
+    /// 设置页 / 状态栏菜单里的稳定顺序
+    static var displayOrder: [ProviderKind] {
+        [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
     }
 }
 
@@ -75,7 +84,13 @@ extension ProviderUsage {
 
     var balanceText: String? {
         guard let balance else { return nil }
-        let symbol = currency == "CNY" ? "¥" : ((currency.map { $0 + " " }) ?? "")
+        let symbol: String
+        switch currency?.uppercased() {
+        case "CNY", "RMB": symbol = "¥"
+        case "USD": symbol = "$"
+        case .some(let other): symbol = other + " "
+        case .none: symbol = ""
+        }
         return symbol + balance.money2
     }
 

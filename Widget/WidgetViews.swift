@@ -52,14 +52,14 @@ private struct RefreshButton: View {
     }
 }
 
-// MARK: - 中号：两栏（左 火山三窗口 / 右 智谱两窗口 + DeepSeek 余额）
+// MARK: - 中号：窗口型供应商按列排，余额型收在底部
 
 struct MediumUsageView: View {
     var usages: [ProviderUsage]
     var usedCache: Bool
 
     private var windowProviders: [ProviderUsage] { usages.filter { $0.kind != .deepseek } }
-    private var deepseek: ProviderUsage? { usages.first { $0.kind == .deepseek } }
+    private var balances: [ProviderUsage] { usages.filter { $0.kind == .deepseek } }
 
     var body: some View {
         if usages.isEmpty {
@@ -71,19 +71,28 @@ struct MediumUsageView: View {
                         ProviderColumn(usage: first)
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
-                    if windowProviders.count > 1 || deepseek != nil {
+                    if windowProviders.count > 1 || !balances.isEmpty {
                         Divider()
                         VStack(alignment: .leading, spacing: 4) {
                             if windowProviders.count > 1 {
                                 ProviderColumn(usage: windowProviders[1])
                             }
-                            if let deepseek {
+                            if let balance = balances.first {
                                 if windowProviders.count > 1 { Divider() }
-                                BalanceRow(usage: deepseek)
+                                BalanceRow(usage: balance)
                             }
                             Spacer(minLength: 0)
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
+                }
+                // 超过两家的窗口型（OpenCode Go / CommandCode）压成一行紧凑摘要，避免中号放不下
+                if windowProviders.count > 2 {
+                    HStack(spacing: 6) {
+                        ForEach(windowProviders.dropFirst(2)) { usage in
+                            CompactQuotaChip(usage: usage)
+                        }
+                        Spacer(minLength: 0)
                     }
                 }
                 HStack(spacing: 4) {
@@ -98,6 +107,35 @@ struct MediumUsageView: View {
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 2)
+        }
+    }
+}
+
+/// 中号底部的一行紧凑摘要：图标 + 名称 + 主窗口百分比（多出来的供应商用它，不挤掉主要两栏）
+private struct CompactQuotaChip: View {
+    var usage: ProviderUsage
+
+    var body: some View {
+        Link(destination: URL(string: usage.kind.consoleURL)!) {
+            HStack(spacing: 3) {
+                Image(systemName: usage.kind.iconSymbol)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(usage.kind.brandColor)
+                Text(usage.kind.displayName)
+                    .font(.system(size: 8, weight: .medium))
+                    .lineLimit(1)
+                if usage.ok, let window = usage.primaryWindow {
+                    Text(window.percent.percentText)
+                        .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(levelColor(window.percent))
+                } else {
+                    Text(usage.ok ? "—" : "失败")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.red)
+                }
+            }
+            .contentShape(Rectangle())
         }
     }
 }
@@ -195,6 +233,8 @@ struct LargeUsageView: View {
                        label: "方舟支持", text: ModelCatalog.ark.summary)
             footerLine(icon: ProviderKind.zhipu.iconSymbol, color: ProviderKind.zhipu.brandColor,
                        label: "GLM 支持", text: ModelCatalog.glm.summary)
+            footerLine(icon: ProviderKind.openCodeGo.iconSymbol, color: ProviderKind.openCodeGo.brandColor,
+                       label: "OpenCode", text: ModelCatalog.opencodeGo.summary)
         }
     }
 
@@ -241,6 +281,13 @@ private struct ProviderSection: View {
                         .foregroundStyle(usage.isAvailable == false ? Color.red : Color.secondary)
                         .padding(.leading, 30)
                 } else {
+                    if let balance = usage.balanceText {
+                        // CommandCode：credits 池余额比百分比更该被看到
+                        Text("剩余额度 \(balance) · 更新 \(usage.timeCaption)")
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 30)
+                    }
                     ForEach(usage.windowsInDisplayOrder) { window in
                         QuotaWindowRow(window: window, style: .regular)
                     }

@@ -33,6 +33,16 @@ struct QuotaWindow: Codable, Hashable, Identifiable {
         default: return 3
         }
     }
+
+    /// 菜单栏等窄空间用的短名：5h / 周 / 月
+    var shortName: String {
+        switch name {
+        case Self.fiveHour: return "5h"
+        case Self.weekly: return "周"
+        case Self.monthly: return "月"
+        default: return name
+        }
+    }
 }
 
 enum ProviderKind: String, Codable, CaseIterable {

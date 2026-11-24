@@ -6,14 +6,53 @@ import WidgetKit
 /// 警戒配置（存于 App Group 容器 alerts.json）
 struct AlertConfig: Codable {
     var enabled = false
-    /// 火山 / 智谱：任一窗口使用率 ≥ 阈值（%）时通知
+    /// 火山 / 智谱：任一窗口使用率 ≥ 阈值（%）
     var volcThreshold: Double = 80
     var zhipuThreshold: Double = 80
     /// DeepSeek：余额 ≤ 阈值（元）时通知
     var deepseekThreshold: Double = 5
+    /// OpenCode Go / CommandCode：任一窗口使用率 ≥ 阈值（%）
+    var openCodeThreshold: Double = 80
+    var commandCodeThreshold: Double = 80
     var intervalMinutes: Int = 15
     /// 上次观察到的值，用于判断"跨越阈值"，避免重复通知
     var lastValues: [String: Double] = [:]
+
+    /// 某家 provider 的窗口阈值；余额型返回 nil
+    func windowThreshold(for kind: ProviderKind) -> Double? {
+        switch kind {
+        case .volcengine: return volcThreshold
+        case .zhipu: return zhipuThreshold
+        case .openCodeGo: return openCodeThreshold
+        case .commandCode: return commandCodeThreshold
+        case .deepseek: return nil
+        }
+    }
+
+    mutating func setWindowThreshold(_ value: Double, for kind: ProviderKind) {
+        switch kind {
+        case .volcengine: volcThreshold = value
+        case .zhipu: zhipuThreshold = value
+        case .openCodeGo: openCodeThreshold = value
+        case .commandCode: commandCodeThreshold = value
+        case .deepseek: break
+        }
+    }
+
+    /// 旧的 alerts.json 没有新增字段时，解码会失败 → 逐字段兜底，避免用户配置被清空
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = (try? c.decode(Bool.self, forKey: .enabled)) ?? false
+        volcThreshold = (try? c.decode(Double.self, forKey: .volcThreshold)) ?? 80
+        zhipuThreshold = (try? c.decode(Double.self, forKey: .zhipuThreshold)) ?? 80
+        deepseekThreshold = (try? c.decode(Double.self, forKey: .deepseekThreshold)) ?? 5
+        openCodeThreshold = (try? c.decode(Double.self, forKey: .openCodeThreshold)) ?? 80
+        commandCodeThreshold = (try? c.decode(Double.self, forKey: .commandCodeThreshold)) ?? 80
+        intervalMinutes = (try? c.decode(Int.self, forKey: .intervalMinutes)) ?? 15
+        lastValues = (try? c.decode([String: Double].self, forKey: .lastValues)) ?? [:]
+    }
 }
 
 /// 定时查询三家用量并按阈值发本地通知。小组件扩展无法发通知，
@@ -90,12 +129,19 @@ final class QuotaAlertCenter: ObservableObject {
             lastCheckText = "未识别到任何凭据，请先在 cc-switch 或上方手动配置"
             return
         }
-        let results = await QueryService.fetchAll(credentials)
+        // 只查「显示中」的供应商；勾了「连未选中的也查询」时照旧全查
+        let prefs = DisplayStore.load()
+        let targets = credentials.filter { prefs.shouldQuery($0.kind) }
+        guard !targets.isEmpty else {
+            lastCheckText = "已被「显示哪些供应商」全部取消勾选，未执行查询"
+            return
+        }
+        let results = await QueryService.fetchAll(targets)
         if !results.isEmpty {
             SnapshotCache.save(results)
             WidgetCenter.shared.reloadAllTimelines()
         }
-        let alerts = evaluate(results)
+        let alerts = evaluate(prefs.filter(results))
         let failed = results.filter { !$0.ok }.map { $0.kind.displayName }
         var text = Self.clock() + " 检查完成"
         if !failed.isEmpty { text += "（\(failed.joined(separator: "、")) 查询失败）" }
@@ -124,20 +170,7 @@ final class QuotaAlertCenter: ObservableObject {
     private func evaluate(_ usages: [ProviderUsage]) -> [Alert] {
         var alerts: [Alert] = []
         for usage in usages where usage.ok {
-            switch usage.kind {
-            case .volcengine, .zhipu:
-                let threshold = usage.kind == .volcengine ? config.volcThreshold : config.zhipuThreshold
-                for window in usage.windowsInDisplayOrder {
-                    let key = "\(usage.kind.rawValue).\(window.name)"
-                    let previous = config.lastValues[key]
-                    config.lastValues[key] = window.percent
-                    if (previous ?? 0) < threshold, window.percent >= threshold {
-                        alerts.append(Alert(
-                            title: "\(usage.kind.displayName)「\(window.name)」已用 \(window.percent.percentText)",
-                            body: "超过警戒线 \(Int(threshold))% · \(window.remainingText) · \(window.resetCaption)"))
-                    }
-                }
-            case .deepseek:
+            if usage.kind == .deepseek {
                 guard let balance = usage.balance else { continue }
                 let key = "deepseek.balance"
                 let previous = config.lastValues[key]
@@ -146,6 +179,19 @@ final class QuotaAlertCenter: ObservableObject {
                     alerts.append(Alert(
                         title: "DeepSeek 余额仅剩 \(usage.balanceText ?? balance.money2)",
                         body: "低于警戒线 ¥\(config.deepseekThreshold.money2)，请及时充值"))
+                }
+                continue
+            }
+            // 窗口型 provider（火山 / 智谱 / OpenCode Go / CommandCode）统一按「任一窗口越线」判断
+            guard let threshold = config.windowThreshold(for: usage.kind) else { continue }
+            for window in usage.windowsInDisplayOrder {
+                let key = "\(usage.kind.rawValue).\(window.name)"
+                let previous = config.lastValues[key]
+                config.lastValues[key] = window.percent
+                if (previous ?? 0) < threshold, window.percent >= threshold {
+                    alerts.append(Alert(
+                        title: "\(usage.kind.displayName)「\(window.name)」已用 \(window.percent.percentText)",
+                        body: "超过警戒线 \(Int(threshold))% · \(window.remainingText) · \(window.resetCaption)"))
                 }
             }
         }

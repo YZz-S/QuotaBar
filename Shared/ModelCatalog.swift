@@ -161,6 +161,36 @@ enum ModelCatalog {
         ]
         let sourceURL = URL(string: "https://opencode.ai/docs/go/")!
         let homeURL = URL(string: "https://opencode.ai/go")!
+        /// 大号小组件页脚用的一行摘要
+        var summary: String {
+            "GLM-5.3 · Kimi K3/K2.7 · Qwen3.8 · DeepSeek-V4 · MiniMax-M3 · MiMo V2.5"
+        }
     }
     static let opencodeGo = OpenCodeGoPlan()
+
+    // MARK: CommandCode（GOAT / Pro / Max 套餐）
+
+    struct CommandCodePlan {
+        let title = "CommandCode"
+        let subtitle = "能力型订阅套餐 · 一次订阅调用多厂模型（走 Anthropic / OpenAI 兼容网关）"
+        let models = [
+            "deepseek/deepseek-v4.1-flash（1M 上下文）",
+            "z-ai/glm-5.3-flash（1M 上下文）",
+            "moonshotai/Kimi-K3.1-Pro（约 1M 上下文）",
+            "xiaomi/mimo-v2.6-flash / mimo-v2.6-pro（1M 上下文）",
+            "Qwen/Qwen3.8-27B（256K 上下文）",
+            "claude-fable-5-2（1M 上下文）",
+        ]
+        let notes = [
+            "额度以美元的 credits 池计算：5 小时 / 周 为滚动窗口，月度按订阅周期（见账单页）",
+            "credits 接口返回的是「剩余」，所以本应用的月度使用率按 已花 ÷(已花 + 剩余) 计算",
+            "查询走官方 CLI 内部使用的 /alpha 私有路由，字段口径随上游可能变动，失败时面板会直接给出原因",
+        ]
+        let sourceURL = URL(string: "https://commandcode.ai")!
+        /// 大号小组件页脚用的一行摘要
+        var summary: String {
+            "DeepSeek-V4.1 · GLM-5.3 · Kimi-K3.1 · MiMo-V2.6 · Qwen3.8 · Claude"
+        }
+    }
+    static let commandCode = CommandCodePlan()
 }

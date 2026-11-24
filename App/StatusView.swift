@@ -8,6 +8,12 @@ struct StatusView: View {
     @State private var running = false
     @State private var dbFound = true
     @State private var fromCache = false
+    @State private var prefs = DisplayStore.load()
+
+    /// 按「显示哪些供应商」偏好筛出的凭据（顺序固定）
+    private var activeCredentials: [ProviderCredentials] {
+        credentials.filter { prefs.shouldQuery($0.kind) }
+    }
 
     var body: some View {
         ScrollView {
@@ -45,7 +51,7 @@ struct StatusView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(running || credentials.isEmpty)
+                    .disabled(running || activeCredentials.isEmpty)
                     if let first = results.first {
                         Text((fromCache ? "上次查询 " : "查询于 ") + first.timeCaption)
                             .font(.caption)
@@ -72,9 +78,10 @@ struct StatusView: View {
         .task {
             dbFound = FileManager.default.fileExists(atPath: ProvidersStore.dbURL.path)
             credentials = ProvidersStore.loadCredentials()
+            prefs = DisplayStore.load()
             ProvidersStore.exportCredentials(credentials)
             if let cached = SnapshotCache.load(), !cached.isEmpty {
-                results = cached
+                results = prefs.filter(cached)
                 fromCache = true
             }
             WidgetCenter.shared.reloadAllTimelines()
@@ -82,6 +89,12 @@ struct StatusView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .credentialsChanged)) { _ in
             credentials = ProvidersStore.loadCredentials()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .displayPreferencesChanged)) { _ in
+            prefs = DisplayStore.load()
+            if let cached = SnapshotCache.load(), !cached.isEmpty {
+                results = prefs.filter(cached)
+            }
         }
     }
 
@@ -96,12 +109,42 @@ struct StatusView: View {
                 .font(.callout)
         } else {
             VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Text("显示哪些供应商")
+                        .font(.caption.weight(.semibold))
+                    Text(prefs.isAllEnabled ? "（全部）" : "（\(prefs.activeKinds.count)/\(ProviderKind.displayOrder.count)）")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Toggle("连未选中的也查询", isOn: Binding(
+                        get: { prefs.queryUnselected },
+                        set: { on in
+                            prefs.queryUnselected = on
+                            DisplayStore.save(prefs)
+                            NotificationCenter.default.post(name: .displayPreferencesChanged, object: nil)
+                        }))
+                        .toggleStyle(.checkbox)
+                        .font(.caption2)
+                }
                 ForEach(credentials, id: \.kind) { credential in
+                    let known = credential.kind
+                    let on = prefs.isEnabled(known)
                     HStack(spacing: 9) {
+                        Toggle("", isOn: Binding(
+                            get: { on },
+                            set: { newValue in
+                                prefs.setEnabled(known, newValue)
+                                DisplayStore.save(prefs)
+                                NotificationCenter.default.post(name: .displayPreferencesChanged, object: nil)
+                            }))
+                            .toggleStyle(.checkbox)
+                            .labelsHidden()
                         Image(systemName: credential.kind.iconSymbol)
-                            .foregroundStyle(credential.kind.brandColor)
+                            .foregroundStyle(on ? credential.kind.brandColor : Color.secondary)
                             .frame(width: 22)
-                        Text(credential.kind.displayName).fontWeight(.medium)
+                        Text(credential.kind.displayName)
+                            .fontWeight(.medium)
+                            .foregroundStyle(on ? .primary : .secondary)
                         Text(credential.sourceName == ProvidersStore.manualSourceName
                              ? "手动配置" : "← \(credential.sourceName)")
                             .font(.caption)
@@ -114,6 +157,10 @@ struct StatusView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Text("只勾选的供应商会参与查询、小组件与状态栏；「连未选中的也查询」打开时会照常请求但不在界面展示。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -126,11 +173,13 @@ struct StatusView: View {
                 credentials = fresh
                 ProvidersStore.exportCredentials(fresh)
             }
-            let fetched = await QueryService.fetchAll(credentials)
+            prefs = DisplayStore.load()
+            let fetched = await QueryService.fetchAll(fresh.filter { prefs.shouldQuery($0.kind) })
             if !fetched.isEmpty { SnapshotCache.save(fetched) }
             results = fetched
             fromCache = false
             running = false
+            StatusBarController.shared.update(fetched)
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
@@ -164,6 +213,21 @@ private struct UsageCard: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
+                    // 余额型套餐（CommandCode 的 credits 池）：把剩余额度单独提一行，比只给百分比直观
+                    if usage.balance != nil, usage.kind == .commandCode {
+                        HStack(spacing: 6) {
+                            Image(systemName: "creditcard.fill")
+                                .font(.caption2)
+                                .foregroundStyle(usage.kind.brandColor)
+                            Text("剩余额度 \(usage.balanceText ?? "")")
+                                .font(.caption.weight(.medium))
+                                .monospacedDigit()
+                            Spacer()
+                            Text("更新 " + usage.timeCaption)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                     ForEach(usage.windowsInDisplayOrder) { window in
                         QuotaWindowRow(window: window, style: .regular)
                     }
