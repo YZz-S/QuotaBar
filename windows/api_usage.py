@@ -40,13 +40,18 @@ MANUAL_FILE = STATE_DIR / "manual-credentials.json"
 SNAPSHOT_FILE = STATE_DIR / "snapshot.json"
 CC_SWITCH_DB = Path.home() / ".cc-switch" / "cc-switch.db"
 
-KIND_ORDER = ["volcengine", "zhipu", "deepseek", "opencode-go", "commandcode"]
+KIND_ORDER = ["volcengine", "zhipu", "kimi", "minimax", "zenmux",
+              "opencode-go", "commandcode", "ollama-cloud", "mimo-token-plan", "deepseek"]
 DISPLAY_NAME = {"volcengine": "火山方舟", "zhipu": "智谱 GLM", "deepseek": "DeepSeek",
-                "opencode-go": "OpenCode Go", "commandcode": "CommandCode"}
+                "opencode-go": "OpenCode Go", "commandcode": "CommandCode",
+                "kimi": "Kimi For Coding", "minimax": "MiniMax", "zenmux": "ZenMux",
+                "ollama-cloud": "Ollama Cloud", "mimo-token-plan": "小米 MiMo"}
 DEFAULT_TIMEOUT = 12
 USER_AGENT = "QuotaBar-Windows/1.0"
 
 W_5H, W_7D, W_MONTH = "5小时", "7天", "月"
+# 不固定周期的「额度」档（小米 MiMo 有月付也有年付，冒充「月」会误导）
+W_CREDITS = "额度"
 
 # ---------------------------------------------------------------------------
 # 宽容的 JSON 字段提取（对应 Shared/Models.swift 的 JSONUtil）
@@ -154,7 +159,7 @@ def window_remaining(w):
 
 
 def window_display_order(w):
-    return {W_5H: 0, W_7D: 1, W_MONTH: 2}.get(w["name"], 3)
+    return {W_5H: 0, W_7D: 1, W_MONTH: 2, W_CREDITS: 3}.get(w["name"], 4)
 
 
 def usage(kind, ok, windows=None, subtitle=None, balance=None,
@@ -283,6 +288,81 @@ def _identify(name, settings, meta):
         key = j_str(settings, "api_key", "apiKey")
         if key:
             return {"kind": "commandcode", "sourceName": name, "apiKey": key}
+
+    # 其余 Coding Plan：先认显式 codingPlanProvider，再按 base_url 主机名自动识别
+    # （与 cc-switch 的 detect_provider 同口径，含路径前缀要求，不认中转站伪造域名）
+    plan_kind = _plan_provider_kind(coding_plan_provider, base_url)
+    if plan_kind:
+        key = _plan_api_key(settings, env)
+        if key:
+            credential = {"kind": plan_kind, "sourceName": name, "apiKey": key}
+            if plan_kind == "zenmux":
+                # ZenMux 的额度端点就是用户自己的 base_url，必须一起带过去
+                if not base_url:
+                    return None
+                credential["baseUrl"] = base_url
+            elif plan_kind == "minimax":
+                credential["baseUrl"] = base_url
+            return credential
+    return None
+
+
+def _plan_provider_kind(explicit, base_url):
+    """显式 codingPlanProvider 优先，其次按 base_url 主机名（含路径前缀）自动识别。"""
+    if isinstance(explicit, str):
+        mapping = {"kimi": "kimi", "minimax": "minimax", "zenmux": "zenmux",
+                   "ollama_cloud": "ollama-cloud", "mimo": "mimo-token-plan"}
+        kind = mapping.get(explicit.lower())
+        if kind:
+            return kind
+    try:
+        parsed = urllib.parse.urlsplit((base_url or "").strip())
+    except ValueError:
+        return None
+    host = (parsed.hostname or "").lower()
+    path = (parsed.path or "").lower()
+    if not host:
+        return None
+
+    def host_is(*candidates):
+        # 主机名按标签边界匹配：api.kimi.com.example.com 这类伪造后缀不算
+        return any(host == c or host.endswith("." + c) for c in candidates)
+
+    if host_is("api.kimi.com") and path.startswith("/coding"):
+        return "kimi"
+    if host_is("api.minimaxi.com", "api.minimax.cn", "api.minimax.io"):
+        return "minimax"
+    if host_is("zenmux.ai"):
+        return "zenmux"
+    # ollama.com 只认云端；本地 localhost:11434 不匹配（host 是 127.0.0.1/localhost）
+    if host_is("ollama.com"):
+        return "ollama-cloud"
+    if host_is("token-plan-cn.xiaomimimo.com"):
+        return "mimo-token-plan"
+    return None
+
+
+def _plan_api_key(settings, env):
+    """套餐查询用的 Key：先看 provider 自身，再看 env，最后按 key_env 去 dotenv 里取。"""
+    key = j_str(settings, "api_key", "apiKey")
+    if key:
+        return key
+    key = j_str(env, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
+                "OPENAI_API_KEY", "OLLAMA_API_KEY")
+    if key:
+        return key
+    options = settings.get("options") or {}
+    if isinstance(options, dict):
+        literal = j_str(options, "apiKey")
+        if literal and not literal.startswith("{env:"):
+            return literal
+        if literal and literal.startswith("{env:") and literal.endswith("}"):
+            value = _dotenv_lookup(literal[5:-1])
+            if value:
+                return value
+    key_env = j_str(settings, "key_env")
+    if key_env:
+        return _dotenv_lookup(key_env)
     return None
 
 
@@ -841,9 +921,273 @@ def fetch_commandcode(credential, timeout):
                  source=credential.get("sourceName"))
 
 
+# ---------------------------------------------------------------------------
+# 其余 Coding Plan 供应商（Kimi / MiniMax / ZenMux / Ollama Cloud / 小米 MiMo）
+#
+# 端点、鉴权头、字段语义逐条对齐 cc-switch src-tauri/src/services/coding_plan.rs
+# （各家百分比是「剩余」还是「已用」不同，别互相套用）。
+
+KIMI_USAGE_BASE = "https://api.kimi.com/coding/v1"
+ZENMUX_DEFAULT_BASE = "https://zenmux.ai/api/anthropic"
+OLLAMA_BALANCE_URL = "https://ollama.com/api/balance"
+MIMO_TOKEN_PLAN_URL = "https://token-plan-cn.xiaomimimo.com/v1/platform/token_plan"
+
+
+def _mimo_period_time(value):
+    """MiMo 的周期时间是 UTC 的 `YYYY-MM-DD HH:mm:ss`（无 T、无时区），转 ISO8601。"""
+    if isinstance(value, str):
+        try:
+            naive = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M:%S")
+            return naive.replace(tzinfo=timezone.utc).isoformat()
+        except ValueError:
+            pass
+    return j_date({"v": value}, "v")
+
+
+def fetch_kimi(credential, timeout):
+    """GET {base}/usages → limits[].detail 是 5 小时窗口、usage 是周窗口，都给「剩余」"""
+    key = credential.get("apiKey")
+    source = credential.get("sourceName")
+    if not key:
+        return usage("kimi", False, error="Kimi API Key 未配置", source=source)
+    url = (credential.get("baseUrl") or KIMI_USAGE_BASE).rstrip("/") + "/usages"
+    try:
+        status, payload = http_json("GET", url,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Accept": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("kimi", False, error=str(e), source=source)
+    if not isinstance(payload, dict):
+        return usage("kimi", False, error=f"Kimi: 响应解析失败 (HTTP {status})", source=source)
+    error = payload.get("error")
+    if isinstance(error, dict):
+        return usage("kimi", False,
+                     error=f"Kimi: {j_str(error, 'message') or f'HTTP {status}'}", source=source)
+
+    def parse_window(node):
+        if not isinstance(node, dict):
+            return None
+        limit = j_num(node, "limit") or 0
+        remaining = j_num(node, "remaining") or 0
+        if limit <= 0:
+            return None
+        return (max(limit - remaining, 0.0), limit,
+                j_date(node, "resetTime", "resetAt"))
+
+    windows = []
+    limits = payload.get("limits")
+    if isinstance(limits, list):
+        for limit in limits:
+            parsed = parse_window(limit.get("detail") if isinstance(limit, dict) else None)
+            if parsed:
+                used, total, reset = parsed
+                windows.append(quota_window(W_5H, used / total * 100, used=used,
+                                            total=total, unit="次", reset_time=reset))
+                break
+    parsed = parse_window(payload.get("usage"))
+    if parsed:
+        used, total, reset = parsed
+        windows.append(quota_window(W_7D, used / total * 100, used=used,
+                                    total=total, unit="次", reset_time=reset))
+    if not windows:
+        return usage("kimi", False,
+                     error="Kimi: 无用量数据（可能是 Key 无 Coding Plan）", source=source)
+    return usage("kimi", True, windows=windows, subtitle="Coding Plan", source=source)
+
+
+def fetch_minimax(credential, timeout):
+    """GET /v1/api/openplatform/coding_plan/remains → 剩余百分比，已用 = 100 - 剩余。
+
+    model_remains[] 只取 model_name == "general"；周桶靠 current_weekly_status 区分
+    （1 计时 / 2 已耗尽 / 3 无周限额 → 跳过 3）。"""
+    key = credential.get("apiKey")
+    source = credential.get("sourceName")
+    if not key:
+        return usage("minimax", False, error="MiniMax API Key 未配置", source=source)
+    host = "api.minimax.io" if "minimax.io" in (credential.get("baseUrl") or "").lower() \
+        else "api.minimaxi.com"
+    url = f"https://{host}/v1/api/openplatform/coding_plan/remains"
+    try:
+        status, payload = http_json("GET", url,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Content-Type": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("minimax", False, error=str(e), source=source)
+    if not isinstance(payload, dict):
+        return usage("minimax", False, error=f"MiniMax: 响应解析失败 (HTTP {status})", source=source)
+    base_resp = payload.get("base_resp")
+    if isinstance(base_resp, dict):
+        code = base_resp.get("status_code")
+        if code not in (0, None):
+            return usage("minimax", False,
+                         error=f"MiniMax: {base_resp.get('status_msg') or '未知错误'}（code {code}）",
+                         source=source)
+    items = payload.get("model_remains")
+    general = next((i for i in (items or [])
+                    if isinstance(i, dict) and j_str(i, "model_name") == "general"), None)
+    if general is None:
+        return usage("minimax", False,
+                     error="MiniMax: 响应中没有 general 模型额度", source=source)
+
+    windows = []
+    remaining = j_num(general, "current_interval_remaining_percent")
+    if remaining is not None:
+        windows.append(quota_window(W_5H, max(0.0, min(100.0, 100 - remaining)),
+                                    reset_time=j_date(general, "end_time")))
+    weekly_status = j_int(general, "current_weekly_status")
+    remaining = j_num(general, "current_weekly_remaining_percent")
+    if weekly_status in (1, 2) and remaining is not None:
+        windows.append(quota_window(W_7D, max(0.0, min(100.0, 100 - remaining)),
+                                    reset_time=j_date(general, "weekly_end_time")))
+    if not windows:
+        return usage("minimax", False, error="MiniMax: 无窗口数据", source=source)
+    return usage("minimax", True, windows=windows, subtitle="Coding Plan", source=source)
+
+
+def fetch_zenmux(credential, timeout):
+    """额度端点就是用户配置的 base_url；usage_percentage 实测是 0-1 分数"""
+    key = credential.get("apiKey")
+    source = credential.get("sourceName")
+    if not key:
+        return usage("zenmux", False, error="ZenMux API Key 未配置", source=source)
+    url = credential.get("baseUrl") or ZENMUX_DEFAULT_BASE
+    try:
+        status, payload = http_json("GET", url,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Accept": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("zenmux", False, error=str(e), source=source)
+    if not isinstance(payload, dict):
+        return usage("zenmux", False, error=f"ZenMux: 响应解析失败 (HTTP {status})", source=source)
+    if payload.get("success") is not True:
+        return usage("zenmux", False,
+                     error=f"ZenMux: {j_str(payload, 'message') or '未知错误'}", source=source)
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return usage("zenmux", False, error="ZenMux: 响应缺少 data 字段", source=source)
+
+    found = [(label, data[key]) for key, label in (("quota_5_hour", W_5H), ("quota_7_day", W_7D))
+             if isinstance(data.get(key), dict) and j_num(data[key], "usage_percentage") is not None]
+    if not found:
+        return usage("zenmux", False,
+                     error="ZenMux: 响应中没有 5 小时 / 7 天窗口", source=source)
+    values = [j_num(node, "usage_percentage") or 0 for _, node in found]
+    fraction = all(0 <= v <= 1 for v in values) and any(v > 0 for v in values)
+
+    windows = []
+    for label, node in found:
+        percent = (j_num(node, "usage_percentage") or 0) * 100 if fraction \
+            else (j_num(node, "usage_percentage") or 0)
+        max_usd = j_num(node, "max_value_usd")
+        windows.append(quota_window(
+            label, max(0.0, min(100.0, percent)),
+            used=j_num(node, "used_value_usd"), total=max_usd,
+            unit="USD" if max_usd is not None else None,
+            reset_time=j_date(node, "resets_at", "resetAt")))
+    plan = data.get("plan")
+    tier = (j_str(plan, "tier") if isinstance(plan, dict) else None) \
+        or j_str(data, "plan_name") or "Token Plan"
+    return usage("zenmux", True, windows=windows, subtitle=tier, source=source)
+
+
+def fetch_ollama_cloud(credential, timeout):
+    """GET /api/balance → 新套餐 allowance_usd/balance_usd，老套餐 session/weekly.remaining_percent"""
+    key = credential.get("apiKey")
+    source = credential.get("sourceName")
+    if not key:
+        return usage("ollama-cloud", False, error="Ollama Cloud API Key 未配置", source=source)
+    try:
+        status, payload = http_json("GET", OLLAMA_BALANCE_URL,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Accept": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("ollama-cloud", False, error=str(e), source=source)
+    if not isinstance(payload, dict):
+        return usage("ollama-cloud", False,
+                     error=f"Ollama Cloud: 响应解析失败 (HTTP {status})", source=source)
+    included = payload.get("included")
+    if not isinstance(included, dict):
+        return usage("ollama-cloud", False,
+                     error="Ollama Cloud: 响应缺少 included 字段", source=source)
+
+    allowance = j_num(included, "allowance_usd")
+    balance = j_num(included, "balance_usd")
+    if allowance is not None and allowance > 0 and balance is not None:
+        used = max(0.0, min(allowance, allowance - balance))
+        window = quota_window(W_MONTH, used / allowance * 100, used=used,
+                              total=allowance, unit="USD",
+                              reset_time=j_date(included.get("period") or {}, "until", "to"))
+        return usage("ollama-cloud", True, windows=[window], subtitle="Cloud", source=source)
+    if allowance is not None and allowance <= 0:
+        return usage("ollama-cloud", False,
+                     error="Ollama Cloud: 该账户没有套餐额度（按量付费）", source=source)
+
+    windows = []
+    for key, label in (("session", W_5H), ("weekly", W_7D)):
+        node = included.get(key)
+        if not isinstance(node, dict):
+            continue
+        remaining = j_num(node, "remaining_percent")
+        if remaining is None:
+            continue
+        windows.append(quota_window(label, max(0.0, min(100.0, 100 - remaining)),
+                                    reset_time=j_date(node, "resets_at", "resetAt")))
+    if not windows:
+        return usage("ollama-cloud", False,
+                     error="Ollama Cloud: 响应形态无法识别", source=source)
+    return usage("ollama-cloud", True, windows=windows, subtitle="Cloud", source=source)
+
+
+def fetch_mimo_token_plan(credential, timeout):
+    """GET /v1/platform/token_plan → quota.total_credits/used_credits，周期可月付可年付"""
+    key = credential.get("apiKey")
+    source = credential.get("sourceName")
+    if not key:
+        return usage("mimo-token-plan", False,
+                     error="小米 MiMo Token Plan Key 未配置", source=source)
+    try:
+        status, payload = http_json("GET", MIMO_TOKEN_PLAN_URL,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Accept": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("mimo-token-plan", False, error=str(e), source=source)
+    if not isinstance(payload, dict):
+        return usage("mimo-token-plan", False,
+                     error=f"小米 MiMo: 响应解析失败 (HTTP {status})", source=source)
+    error = payload.get("error")
+    if isinstance(error, dict):
+        return usage("mimo-token-plan", False,
+                     error=f"小米 MiMo: {j_str(error, 'message') or f'HTTP {status}'}",
+                     source=source)
+    quota = payload.get("quota")
+    total = j_num(quota, "total_credits") if isinstance(quota, dict) else None
+    if total is None or total <= 0:
+        return usage("mimo-token-plan", False,
+                     error="小米 MiMo: 该 Key 没有 Token Plan 额度（需 tp- 开头的 Key）",
+                     source=source)
+    used = j_num(quota, "used_credits")
+    if used is None:
+        remaining = j_num(quota, "remaining_credits")
+        if remaining is None:
+            return usage("mimo-token-plan", False,
+                         error="小米 MiMo: quota 里既无 used_credits 也无 remaining_credits",
+                         source=source)
+        used = total - remaining
+    period = payload.get("period") or {}
+    window = quota_window(W_CREDITS, max(0.0, min(100.0, used / total * 100)),
+                          used=used, total=total, unit="积分",
+                          reset_time=_mimo_period_time(
+                              period.get("end_at") if isinstance(period, dict) else None))
+    plan_code = j_str(payload, "plan_code") or "Token Plan"
+    return usage("mimo-token-plan", True, windows=[window],
+                 subtitle=plan_code, source=source)
+
+
 FETCHERS = {"volcengine": fetch_volc, "zhipu": fetch_zhipu,
             "deepseek": fetch_deepseek, "opencode-go": fetch_opencode,
-            "commandcode": fetch_commandcode}
+            "commandcode": fetch_commandcode, "kimi": fetch_kimi,
+            "minimax": fetch_minimax, "zenmux": fetch_zenmux,
+            "ollama-cloud": fetch_ollama_cloud, "mimo-token-plan": fetch_mimo_token_plan}
 
 
 def fetch_all(credentials, timeout=DEFAULT_TIMEOUT):
@@ -880,7 +1224,9 @@ def save_snapshot(results):
 # 警戒（对应 App 设置页的阈值通知；toast 走 PowerShell WinRT，无需装模块）
 
 DEFAULT_ALERTS = {"volc": 80.0, "zhipu": 80.0, "deepseek": 10.0,
-                  "opencode": 80.0, "commandcode": 80.0}
+                  "opencode": 80.0, "commandcode": 80.0,
+                  "kimi": 80.0, "minimax": 80.0, "zenmux": 80.0,
+                  "ollama": 80.0, "mimo": 80.0}
 
 
 def parse_alert_spec(spec):
@@ -892,7 +1238,8 @@ def parse_alert_spec(spec):
         key, _, value = part.partition("=")
         key = key.strip().lower()
         if key not in thresholds:
-            raise SystemExit(f"未知警戒项: {key}（可选 volc/zhipu/deepseek/opencode/commandcode）")
+            raise SystemExit(f"未知警戒项: {key}（可选 "
+                             + "/".join(DEFAULT_ALERTS) + "）")
         try:
             thresholds[key] = float(value)
         except ValueError:
@@ -901,7 +1248,9 @@ def parse_alert_spec(spec):
 
 
 THRESHOLD_KEY = {"volcengine": "volc", "zhipu": "zhipu",
-                 "opencode-go": "opencode", "commandcode": "commandcode"}
+                 "opencode-go": "opencode", "commandcode": "commandcode",
+                 "kimi": "kimi", "minimax": "minimax", "zenmux": "zenmux",
+                 "ollama-cloud": "ollama", "mimo-token-plan": "mimo"}
 
 
 def check_alerts(results, thresholds):
@@ -1004,7 +1353,10 @@ def render(results, style, credentials, thresholds):
     lines.append(style.dim(
         f"凭据: cc-switch 数据库{' + 手动覆盖' if any(c.get('sourceName') == '手动配置' for c in credentials) else ''}"
         f" · 警戒: 火山≥{fmt_pct(thresholds['volc'])}% 智谱≥{fmt_pct(thresholds['zhipu'])}%"
-        f" OC≥{fmt_pct(thresholds['opencode'])}% CC≥{fmt_pct(thresholds['commandcode'])}%"
+        f" Kimi≥{fmt_pct(thresholds['kimi'])}% MM≥{fmt_pct(thresholds['minimax'])}%"
+        f" ZM≥{fmt_pct(thresholds['zenmux'])}% OC≥{fmt_pct(thresholds['opencode'])}%"
+        f" CC≥{fmt_pct(thresholds['commandcode'])}% Olla≥{fmt_pct(thresholds['ollama'])}%"
+        f" MiMo≥{fmt_pct(thresholds['mimo'])}%"
         f" 余额≤¥{fmt_pct(thresholds['deepseek'])}"))
     lines.append("")
 
@@ -1069,8 +1421,11 @@ def credential_brief(c):
         return f"AK {masked(c.get('accessKey'))} / SK {masked(c.get('secretKey'))} · {c.get('region')}"
     if kind == "zhipu":
         return f"apiKey {masked(c.get('apiKey'))}"
-    if kind in ("opencode-go", "commandcode"):
+    if kind in ("opencode-go", "commandcode", "kimi", "minimax",
+                "ollama-cloud", "mimo-token-plan"):
         return f"apiKey {masked(c.get('apiKey'))}"
+    if kind == "zenmux":
+        return f"apiKey {masked(c.get('apiKey'))} · {c.get('baseUrl')}"
     return f"token {masked(c.get('bearerToken'))}"
 
 
@@ -1180,7 +1535,8 @@ def main():
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, metavar="秒",
                         help="单请求超时（默认 12）")
     parser.add_argument("--alert", default=None, metavar="规格",
-                        help="警戒阈值，如 volc=80,zhipu=80,deepseek=10,opencode=80,commandcode=80")
+                        help="警戒阈值，如 volc=80,zhipu=80,deepseek=10,kimi=80,minimax=80,"
+                             "zenmux=80,opencode=80,commandcode=80,ollama=80,mimo=80")
     parser.add_argument("--no-toast", dest="toast", action="store_false",
                         help="越线时只打印，不发 Windows 通知")
     parser.add_argument("--no-color", dest="color", action="store_false",

@@ -6,7 +6,7 @@
 
 ![Usage tab](images/usage.png)
 
-Collects quota from Volcengine Ark, Zhipu GLM, DeepSeek, OpenCode Go and CommandCode into one place: a persistent menu bar readout, desktop widgets, and low-quota alerts. Credentials are picked up automatically from [cc-switch](https://github.com/farion1231/cc-switch) — zero configuration.
+Collects quota from Volcengine Ark, Zhipu GLM, Kimi For Coding, MiniMax, ZenMux, OpenCode Go, CommandCode, Ollama Cloud, Xiaomi MiMo Token Plan and DeepSeek into one place: a persistent menu bar readout, desktop widgets, and low-quota alerts. Credentials are picked up automatically from [cc-switch](https://github.com/farion1231/cc-switch) — zero configuration.
 
 **Zero third-party dependencies.** The Swift side uses only system frameworks (SwiftUI / AppKit / WidgetKit / CryptoKit / SQLite3). The Windows side uses only the Python standard library.
 
@@ -18,9 +18,26 @@ Collects quota from Volcengine Ark, Zhipu GLM, DeepSeek, OpenCode Go and Command
 |---|---|---|
 | **Volcengine Ark** Coding Plan | 5h / 7d / monthly usage, remaining quota, reset time | OpenAPI V4 signature (AK/SK); falls back from `GetCodingPlanUsage` to `GetAFPUsage` |
 | **Zhipu GLM** Coding Plan | 5h / 7d windows, remaining credits, used/total, reset time | `GET /api/monitor/usage/quota/limit` with a bare apiKey |
-| **DeepSeek** | Account balance (CNY) + service availability | `GET /user/balance` |
+| **Kimi For Coding** | 5h / 7d windows (request counts) | `GET api.kimi.com/coding/v1/usages` with a Bearer key |
+| **MiniMax** Coding Plan | 5h / 7d windows | `GET /v1/api/openplatform/coding_plan/remains` with a Bearer key |
+| **ZenMux** | 5h / 7d windows + USD amounts | Queries the provider's own `base_url`; Bearer key |
 | **OpenCode Go** | 5h / 7d / monthly usage and reset time | `GET opencode.ai/zen/go/v1/usage` with a Bearer sk- key |
 | **CommandCode** (GOAT / Pro / Max…) | 5h / weekly / monthly usage + credits balance (USD) | The official CLI's private `/alpha` routes |
+| **Ollama Cloud** | Monthly allowance (USD) or 5h / weekly windows | `GET ollama.com/api/balance` with a Bearer key |
+| **Xiaomi MiMo** Token Plan | One credit-based tier (plan can bill monthly or yearly) | `GET token-plan-cn.xiaomimimo.com/v1/platform/token_plan` with a Bearer `tp-` key |
+| **DeepSeek** | Account balance (CNY) + service availability | `GET /user/balance` |
+
+Percent semantics **differ per provider** (some return used, some remaining, some a 0-1 fraction). Each was verified against a real response:
+
+| Provider | Field semantics | How "used" is computed |
+|---|---|---|
+| Zhipu / Volcengine / OpenCode Go | Used percentage as-is | Verbatim |
+| Kimi | `limit` / `remaining` (both counts) | `limit - remaining` |
+| MiniMax | `current_*_remaining_percent` (remaining) | `100 - remaining` |
+| ZenMux | `usage_percentage` is a **0-1 fraction** | ×100 (skipped when already 0-100) |
+| Ollama Cloud | `allowance_usd` + `balance_usd` (remaining) | `allowance - balance` |
+| Xiaomi MiMo | `total_credits` / `used_credits` | `used ÷ total` |
+| CommandCode | The credits pool is **remaining** | `spent ÷ (spent + remaining)` |
 
 ### A note on CommandCode's monthly math
 

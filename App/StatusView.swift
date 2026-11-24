@@ -213,8 +213,8 @@ private struct UsageCard: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    // 余额型套餐（CommandCode 的 credits 池）：把剩余额度单独提一行，比只给百分比直观
-                    if usage.balance != nil, usage.kind == .commandCode {
+                    // 余额型套餐（CommandCode 的 credits 池等）：把剩余额度单独提一行，比只给百分比直观
+                    if usage.balance != nil {
                         HStack(spacing: 6) {
                             Image(systemName: "creditcard.fill")
                                 .font(.caption2)

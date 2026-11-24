@@ -26,7 +26,7 @@ enum ProvidersStore {
                 merged.append(manual)
             }
         }
-        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
+        let order: [ProviderKind] = ProviderKind.displayOrder
         return merged.sorted { (order.firstIndex(of: $0.kind) ?? 9) < (order.firstIndex(of: $1.kind) ?? 9) }
     }
 
@@ -137,6 +137,74 @@ enum ProvidersStore {
             return ProviderCredentials(kind: .commandCode, sourceName: name, apiKey: key)
         }
 
+        // ── 其余 Coding Plan：先认显式 codingPlanProvider，再按 base_url 主机名自动识别
+        //    （与 cc-switch 的 detect_provider 同口径，含路径前缀要求，不认中转站伪造域名）。
+        if let plan = planProvider(explicit: codingPlanProvider, baseURL: inferenceBaseURL) {
+            switch plan {
+            case .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan:
+                if let key = planAPIKey(settings: settings, env: env) {
+                    return ProviderCredentials(kind: plan, sourceName: name, apiKey: key)
+                }
+            case .zenMux:
+                // ZenMux 的额度端点就是用户自己的 base_url，必须一起带过去
+                if let key = planAPIKey(settings: settings, env: env), !inferenceBaseURL.isEmpty {
+                    return ProviderCredentials(kind: .zenMux, sourceName: name,
+                                              apiKey: key, baseUrl: inferenceBaseURL)
+                }
+            default:
+                break
+            }
+        }
+
+        return nil
+    }
+
+    /// 显式 `usage_script.codingPlanProvider` 优先，其次按 base_url 主机名（含路径前缀）自动识别。
+    /// 只覆盖本条链路新增的四家 + ZenMux；火山 / 智谱 / CommandCode 上面已有各自更严格的规则。
+    private static func planProvider(explicit: String?, baseURL: String) -> ProviderKind? {
+        if let explicit {
+            switch explicit.lowercased() {
+            case "kimi": return .kimi
+            case "minimax": return .miniMax
+            case "zenmux": return .zenMux
+            case "ollama_cloud": return .ollamaCloud
+            case "mimo": return .mimoTokenPlan
+            default: break
+            }
+        }
+        guard let url = URL(string: baseURL.trimmingCharacters(in: .whitespaces)),
+              let host = url.host?.lowercased() else { return nil }
+        let path = url.path.lowercased()
+        // 主机名按标签边界匹配：api.kimi.com.example.com 这类伪造后缀不算
+        func hostIs(_ candidates: [String]) -> Bool {
+            candidates.contains { host == $0 || host.hasSuffix("." + $0) }
+        }
+        if hostIs(["api.kimi.com"]), path.hasPrefix("/coding") { return .kimi }
+        if hostIs(["api.minimaxi.com", "api.minimax.cn", "api.minimax.io"]) { return .miniMax }
+        if hostIs(["zenmux.ai"]) { return .zenMux }
+        // ollama.com 只认云端；本地 localhost:11434 不是 http(s) 域名，天然不命中
+        if hostIs(["ollama.com"]) { return .ollamaCloud }
+        if hostIs(["token-plan-cn.xiaomimimo.com"]) { return .mimoTokenPlan }
+        return nil
+    }
+
+    /// 套餐查询用的 Key：先看 provider 自身，再看 env，最后按 key_env 去 dotenv 里取
+    private static func planAPIKey(settings: [String: Any], env: [String: Any]) -> String? {
+        if let direct = JSONUtil.string(settings, "api_key", "apiKey") { return direct }
+        if let token = JSONUtil.string(env, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
+                                       "OPENAI_API_KEY", "OLLAMA_API_KEY") {
+            return token
+        }
+        let options = (settings["options"] as? [String: Any]) ?? [:]
+        if let literal = JSONUtil.string(options, "apiKey"), !literal.hasPrefix("{env:") { return literal }
+        if let raw = JSONUtil.string(options, "apiKey"),
+           raw.hasPrefix("{env:"), raw.hasSuffix("}") {
+            let name = String(raw.dropFirst(5).dropLast())
+            if let value = DotEnv.lookup(name) { return value }
+        }
+        if let keyEnv = JSONUtil.string(settings, "key_env"), let value = DotEnv.lookup(keyEnv) {
+            return value
+        }
         return nil
     }
 

@@ -14,12 +14,16 @@
 swiftc -O Shared/Models.swift Shared/ProvidersStore.swift Shared/QueryService.swift \
        Shared/SnapshotCache.swift scripts/UsageCheck.swift -o build/usagecheck && ./build/usagecheck
 
-# 2) 完整构建（要求两个 target 都通过）
+# 2) 解析口径自检：用各家真实响应形态驱动纯解析函数（不联网、不需要凭据）
+swiftc -O Shared/Models.swift Shared/QueryService.swift \
+       scripts/PlanParsersCheck.swift -o build/planparsers && ./build/planparsers
+
+# 3) 完整构建（要求两个 target 都通过）
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcodebuild -project QuotaBar.xcodeproj -target QuotaBar \
   -configuration Release SYMROOT="$PWD/build" OBJROOT="$PWD/build/obj" build
 
-# 3) 改了 Windows 端
+# 4) 改了 Windows 端
 python3 windows/api_usage.py --list
 python3 windows/api_usage.py --no-color
 ```
@@ -31,12 +35,14 @@ python3 windows/api_usage.py --no-color
 照现有实现补五处，缺一处界面就会显示不完整：
 
 1. `Shared/Models.swift` — `ProviderKind` 加 case、`displayName`、`consoleURL`；`ProviderCredentials` 的 `keyDescription` / `isComplete` 加分支
-2. `Shared/ProvidersStore.swift` — `identify()` 里加凭据识别规则，并把新 kind 加进 `loadCredentials()` 的 `order` 数组
-3. `Shared/QueryService.swift` — `fetch()` 的 switch 加分支 + 实现 `fetchXxx`；`fetchAll()` 的 `order` 同步
+2. `Shared/ProvidersStore.swift` — `identify()` 里加凭据识别规则（主机名按标签边界匹配、需要路径前缀的写清楚），并把新 kind 加进 `ProviderKind.displayOrder`
+3. `Shared/QueryService.swift` — `fetch()` 的 switch 加分支 + 实现 `fetchXxx`；**解析逻辑拆成纯函数**（如 `parseMiniMaxTiers`）便于 `scripts/PlanParsersCheck.swift` 校验
 4. `Shared/ViewHelpers.swift` — `iconSymbol` 与 `brandColor`
-5. `App/QuotaAlertCenter.swift` — 若是窗口型，`AlertConfig` 加阈值字段并在 `windowThreshold(for:)` 里返回
+5. `App/QuotaAlertCenter.swift` — 若是窗口型，`AlertConfig` 加阈值字段并在 `windowThreshold(for:)` 里返回；同步 `App/SettingsView.swift` 的两处表单（手动 Key 输入 + 阈值滑块）
 
-Windows 端对应 `windows/api_usage.py` 的 `KIND_ORDER` / `DISPLAY_NAME` / `_identify` / `FETCHERS` / `THRESHOLD_KEY`。
+Windows 端对应 `windows/api_usage.py` 的 `KIND_ORDER` / `DISPLAY_NAME` / `_identify` / `FETCHERS` / `THRESHOLD_KEY` / `credential_brief`。
+
+字段口径与端点可参考 cc-switch 自己的实现：`src-tauri/src/services/coding_plan.rs`（Kimi / 智谱 / MiniMax / ZenMux / 火山 / OpenCode Go / CommandCode / Ollama Cloud / MiMo 全在里面）。
 
 ## 解析接口时的两条硬规则
 

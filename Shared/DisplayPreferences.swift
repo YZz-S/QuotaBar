@@ -66,7 +66,7 @@ struct DisplayPreferences: Codable {
 
     mutating func setStatusWindow(_ name: String, _ on: Bool) {
         // 「全部」（空数组）状态下取消某一项，必须先把全集物化，否则删不动、仍旧等于全部
-        let all = [QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly]
+        let all = [QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly, QuotaWindow.credits]
         var current = statusItemWindows.isEmpty ? all : statusItemWindows
         if on {
             if !current.contains(name) { current.append(name) }

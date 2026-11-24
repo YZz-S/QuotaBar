@@ -6,7 +6,7 @@
 
 ![用量页](images/usage.png)
 
-把火山方舟、智谱 GLM、DeepSeek、OpenCode Go、CommandCode 的额度集中到一个地方：菜单栏常驻数字、桌面小组件、超额警戒通知。凭据自动复用 [cc-switch](https://github.com/farion1231/cc-switch)，零配置。
+把火山方舟、智谱 GLM、Kimi For Coding、MiniMax、ZenMux、OpenCode Go、CommandCode、Ollama Cloud、小米 MiMo Token Plan、DeepSeek 的额度集中到一个地方：菜单栏常驻数字、桌面小组件、超额警戒通知。凭据自动复用 [cc-switch](https://github.com/farion1231/cc-switch)，零配置。
 
 **零第三方依赖**：Swift 端只用系统框架（SwiftUI / AppKit / WidgetKit / CryptoKit / SQLite3），Windows 端只用 Python 标准库。
 
@@ -18,9 +18,26 @@
 |---|---|---|
 | **火山方舟** Coding Plan | 5小时 / 7天 / 月 三窗口使用率、剩余额度、重置时间 | OpenAPI V4 签名（AK/SK），`GetCodingPlanUsage` 失败回落 `GetAFPUsage` |
 | **智谱 GLM** Coding Plan | 5小时 / 7天 双窗口，剩余积分、已用/总量、重置时间 | `GET /api/monitor/usage/quota/limit`，裸 apiKey 鉴权 |
-| **DeepSeek** | 账户余额（CNY）+ 服务可用状态 | `GET /user/balance` |
+| **Kimi For Coding** | 5小时 / 7天 双窗口（次数） | `GET api.kimi.com/coding/v1/usages`，Bearer Key |
+| **MiniMax** Coding Plan | 5小时 / 7天 双窗口 | `GET /v1/api/openplatform/coding_plan/remains`，Bearer Key |
+| **ZenMux** | 5小时 / 7天 双窗口 + USD 金额 | 直接查 provider 自己的 `base_url`，Bearer Key |
 | **OpenCode Go** | 5小时 / 7天 / 月 三窗口使用率与重置时间 | `GET opencode.ai/zen/go/v1/usage`，Bearer sk- 鉴权 |
 | **CommandCode**（GOAT / Pro / Max…） | 5小时 / 周 / 月 使用率 + credits 余额（USD） | 官方 CLI 的 `/alpha` 私有路由 |
+| **Ollama Cloud** | 月度额度（USD）或 5小时 / 周 双窗口 | `GET ollama.com/api/balance`，Bearer Key |
+| **小米 MiMo** Token Plan | 额度档（积分，周期可月付可年付） | `GET token-plan-cn.xiaomimimo.com/v1/platform/token_plan`，Bearer `tp-` Key |
+| **DeepSeek** | 账户余额（CNY）+ 服务可用状态 | `GET /user/balance` |
+
+百分比口径在**每家都不一样**（有的给「已用」，有的给「剩余」，有的给 0-1 分数），解析时逐个实测确认过：
+
+| 供应商 | 字段语义 | 已用怎么算 |
+|---|---|---|
+| 智谱 / 火山 / OpenCode Go | 直接给已用百分比 | 原样 |
+| Kimi | `limit` / `remaining`（都是次数） | `limit - remaining` |
+| MiniMax | `current_*_remaining_percent`（剩余） | `100 - 剩余` |
+| ZenMux | `usage_percentage` 是 **0-1 分数** | ×100 后再用（已是 0-100 时不重复放大） |
+| Ollama Cloud | 新套餐给 `allowance_usd` + `balance_usd`（剩余） | `allowance - balance` |
+| 小米 MiMo | `total_credits` / `used_credits` | `used ÷ total` |
+| CommandCode | credits 池是**剩余** | `已花 ÷ (已花 + 剩余)` |
 
 ### 关于 CommandCode 的月度口径
 

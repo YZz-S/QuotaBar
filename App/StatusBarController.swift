@@ -269,7 +269,7 @@ final class StatusBarController: ObservableObject {
         // 菜单栏显示哪些窗口（余额型供应商不受此项影响）
         let windowItem = NSMenuItem(title: "菜单栏显示窗口", action: nil, keyEquivalent: "")
         let windowMenu = NSMenu()
-        for name in [QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly] {
+        for name in [QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly, QuotaWindow.credits] {
             let entry = NSMenuItem(title: name, action: #selector(toggleWindow(_:)), keyEquivalent: "")
             entry.target = self
             entry.representedObject = name

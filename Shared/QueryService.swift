@@ -25,7 +25,7 @@ enum QueryService {
             for await result in group { collected.append(result) }
             return collected
         }
-        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
+        let order: [ProviderKind] = ProviderKind.displayOrder
         var ordered = order.compactMap { kind in results.first { $0.kind == kind } }
         ordered.append(contentsOf: results.filter { !order.contains($0.kind) })
         return ordered
@@ -39,6 +39,11 @@ enum QueryService {
             case .deepseek: return try await fetchDeepSeek(credential, timeout: timeout)
             case .openCodeGo: return try await fetchOpenCodeGo(credential, timeout: timeout)
             case .commandCode: return try await fetchCommandCode(credential, timeout: timeout)
+            case .kimi: return try await fetchKimi(credential, timeout: timeout)
+            case .miniMax: return try await fetchMiniMax(credential, timeout: timeout)
+            case .zenMux: return try await fetchZenMux(credential, timeout: timeout)
+            case .ollamaCloud: return try await fetchOllamaCloud(credential, timeout: timeout)
+            case .mimoTokenPlan: return try await fetchMimoTokenPlan(credential, timeout: timeout)
             }
         } catch {
             return ProviderUsage(kind: credential.kind, ok: false, errorMessage: error.localizedDescription)
@@ -460,5 +465,313 @@ enum QueryService {
         case "provider": return "Provider"
         case let other: return other
         }
+    }
+}
+
+// MARK: - 其余 Coding Plan 供应商（Kimi / MiniMax / ZenMux / Ollama Cloud / 小米 MiMo）
+//
+// 端点、鉴权头、字段语义逐条对齐 cc-switch `src-tauri/src/services/coding_plan.rs`
+// （已实测：各家百分比是「剩余」还是「已用」不同，别互相套用）。
+
+extension QueryService {
+    /// 百分比可能给 0-100 也可能给 0-1；全组 ≤1 且有非零值时按分数放大
+    fileprivate static func normalizePercent(_ value: Double, allFraction: Bool) -> Double {
+        let scaled = allFraction ? value * 100 : value
+        return min(max(scaled, 0), 100)
+    }
+
+    // MARK: Kimi For Coding
+
+    /// 解析 `GET /coding/v1/usages`：`limits[].detail` = 5 小时窗口、`usage` = 周窗口。
+    /// 两处都给「剩余」（limit / remaining 都是次数），所以已用 = limit - remaining。
+    static func parseKimiUsage(_ json: [String: Any]) -> [QuotaWindow] {
+        func window(_ node: Any?) -> (used: Double, total: Double, reset: Date?)? {
+            guard let node = node as? [String: Any] else { return nil }
+            let limit = JSONUtil.double(node, "limit") ?? 0
+            let remaining = JSONUtil.double(node, "remaining") ?? 0
+            guard limit > 0 else { return nil }
+            return (max(limit - remaining, 0), limit, JSONUtil.date(node, "resetTime", "resetAt"))
+        }
+
+        var windows: [QuotaWindow] = []
+        // 可能有多条 limits，取第一条有可用 detail 的作为 5 小时窗口
+        if let limits = json["limits"] as? [[String: Any]] {
+            for limit in limits {
+                if let parsed = window(limit["detail"]) {
+                    windows.append(QuotaWindow(name: QuotaWindow.fiveHour,
+                                               percent: parsed.used / parsed.total * 100,
+                                               used: parsed.used, total: parsed.total,
+                                               unit: "次", resetTime: parsed.reset))
+                    break
+                }
+            }
+        }
+        if let parsed = window(json["usage"]) {
+            windows.append(QuotaWindow(name: QuotaWindow.weekly,
+                                       percent: parsed.used / parsed.total * 100,
+                                       used: parsed.used, total: parsed.total,
+                                       unit: "次", resetTime: parsed.reset))
+        }
+        return windows
+    }
+
+    private static func fetchKimi(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("Kimi API Key 未配置") }
+        let base = credential.baseUrl ?? "https://api.kimi.com/coding/v1"
+        guard let url = URL(string: base.trimmingTrailingSlashes() + "/usages") else {
+            throw QueryError.remote("Kimi: baseUrl 无效")
+        }
+        let json = try await getJSON(url,
+            headers: ["Authorization": "Bearer \(key)", "Accept": "application/json"],
+            label: "Kimi", timeout: timeout)
+        if let error = json["error"] as? [String: Any],
+           let message = JSONUtil.string(error, "message") {
+            throw QueryError.remote("Kimi: \(message)")
+        }
+        let windows = parseKimiUsage(json)
+        guard !windows.isEmpty else { throw QueryError.remote("Kimi: 无用量数据（可能是 Key 无 Coding Plan）") }
+        return ProviderUsage(kind: .kimi, ok: true, windows: windows, subtitle: "Coding Plan")
+    }
+
+    // MARK: MiniMax Coding Plan
+
+    /// 解析 `GET /v1/api/openplatform/coding_plan/remains`。
+    /// 返回**剩余**百分比（`current_*_remaining_percent`），已用 = 100 - 剩余。
+    /// `model_remains[]` 只取 `model_name == "general"`；周桶靠 `current_weekly_status`
+    /// 区分（1 计时 / 2 已耗尽照常展示 / 3 无周限额 → 跳过）。
+    static func parseMiniMaxTiers(_ json: [String: Any]) -> [QuotaWindow] {
+        guard let items = json["model_remains"] as? [[String: Any]],
+              let general = items.first(where: { JSONUtil.string($0, "model_name") == "general" }) else {
+            return []
+        }
+        var windows: [QuotaWindow] = []
+        if let remain = JSONUtil.double(general, "current_interval_remaining_percent") {
+            windows.append(QuotaWindow(
+                name: QuotaWindow.fiveHour,
+                percent: min(max(100 - remain, 0), 100),
+                resetTime: JSONUtil.date(general, "end_time")))
+        }
+        let weeklyStatus = JSONUtil.int(general, "current_weekly_status")
+        if weeklyStatus == 1 || weeklyStatus == 2,
+           let remain = JSONUtil.double(general, "current_weekly_remaining_percent") {
+            windows.append(QuotaWindow(
+                name: QuotaWindow.weekly,
+                percent: min(max(100 - remain, 0), 100),
+                resetTime: JSONUtil.date(general, "weekly_end_time")))
+        }
+        return windows
+    }
+
+    private static func fetchMiniMax(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("MiniMax API Key 未配置") }
+        let host = (credential.baseUrl?.lowercased().contains("minimax.io") ?? false)
+            ? "api.minimax.io" : "api.minimaxi.com"
+        guard let url = URL(string: "https://\(host)/v1/api/openplatform/coding_plan/remains") else {
+            throw QueryError.remote("MiniMax: 端点无效")
+        }
+        let json = try await getJSON(url,
+            headers: ["Authorization": "Bearer \(key)", "Content-Type": "application/json"],
+            label: "MiniMax", timeout: timeout)
+        if let base = json["base_resp"] as? [String: Any] {
+            let code = JSONUtil.int(base, "status_code") ?? -1
+            if code != 0 {
+                let message = JSONUtil.string(base, "status_msg") ?? "未知错误"
+                throw QueryError.remote("MiniMax: \(message)（code \(code)）")
+            }
+        }
+        let windows = parseMiniMaxTiers(json)
+        guard !windows.isEmpty else {
+            throw QueryError.remote("MiniMax: 响应中没有 general 模型额度")
+        }
+        return ProviderUsage(kind: .miniMax, ok: true, windows: windows, subtitle: "Coding Plan")
+    }
+
+    // MARK: ZenMux
+
+    /// 解析 ZenMux 额度响应：`data.quota_5_hour` / `quota_7_day` 的 `usage_percentage`
+    /// 是 0-1 分数（不是 0-100），按「全组 ≤1 且有非零值」判定后再放大。
+    static func parseZenMuxTiers(_ data: [String: Any]) -> [QuotaWindow] {
+        let spec: [(key: String, name: String)] = [
+            ("quota_5_hour", QuotaWindow.fiveHour),
+            ("quota_7_day", QuotaWindow.weekly),
+        ]
+        var raws: [(String, [String: Any], Double)] = []
+        for item in spec {
+            guard let node = data[item.key] as? [String: Any],
+                  let pct = JSONUtil.double(node, "usage_percentage") else { continue }
+            raws.append((item.name, node, pct))
+        }
+        guard !raws.isEmpty else { return [] }
+        let allFraction = raws.allSatisfy { $0.2 >= 0 && $0.2 <= 1 } && raws.contains { $0.2 > 0 }
+
+        return raws.map { name, node, raw -> QuotaWindow in
+            let maxUSD = JSONUtil.double(node, "max_value_usd")
+            return QuotaWindow(
+                name: name,
+                percent: normalizePercent(raw, allFraction: allFraction),
+                used: JSONUtil.double(node, "used_value_usd"),
+                total: maxUSD,
+                unit: maxUSD == nil ? nil : "USD",
+                resetTime: JSONUtil.date(node, "resets_at", "resetAt"))
+        }
+    }
+
+    private static func fetchZenMux(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("ZenMux API Key 未配置") }
+        guard let base = credential.baseUrl, let url = URL(string: base) else {
+            throw QueryError.remote("ZenMux: 未获取到 baseUrl（额度端点就是 provider 的 base_url）")
+        }
+        let json = try await getJSON(url,
+            headers: ["Authorization": "Bearer \(key)", "Accept": "application/json"],
+            label: "ZenMux", timeout: timeout)
+        if JSONUtil.bool(json, "success") != true {
+            let message = JSONUtil.string(json, "message") ?? "未知错误"
+            throw QueryError.remote("ZenMux: \(message)")
+        }
+        guard let data = json["data"] as? [String: Any] else {
+            throw QueryError.remote("ZenMux: 响应缺少 data 字段")
+        }
+        let windows = parseZenMuxTiers(data)
+        guard !windows.isEmpty else {
+            throw QueryError.remote("ZenMux: 响应中没有 5 小时 / 7 天窗口")
+        }
+        let tier = ((data["plan"] as? [String: Any]).flatMap { JSONUtil.string($0, "tier") })
+            ?? JSONUtil.string(data, "plan_name") ?? ""
+        return ProviderUsage(kind: .zenMux, ok: true, windows: windows,
+                             subtitle: tier.isEmpty ? "Token Plan" : tier)
+    }
+
+    // MARK: Ollama Cloud
+
+    /// 解析 `GET /api/balance`：
+    /// - 新套餐：`included.allowance_usd` 本期总额 + `balance_usd` 剩余 → 月度档，已用 = 差额
+    /// - 老套餐：`included.session/weekly.remaining_percent` → 已用 = 100 - 剩余
+    /// - `allowance_usd == 0`：按量付费账户，没有套餐额度（返回空，由调用方给出提示）
+    static func parseOllamaCloudTiers(_ json: [String: Any]) -> [QuotaWindow] {
+        guard let included = json["included"] as? [String: Any] else { return [] }
+        if let allowance = JSONUtil.double(included, "allowance_usd"),
+           let balance = JSONUtil.double(included, "balance_usd"), allowance > 0 {
+            let used = min(max(allowance - balance, 0), allowance)
+            let period = (included["period"] as? [String: Any]) ?? [:]
+            return [QuotaWindow(
+                name: QuotaWindow.monthly,
+                percent: used / allowance * 100,
+                used: used, total: allowance, unit: "USD",
+                resetTime: JSONUtil.date(period, "until", "to"))]
+        }
+        var windows: [QuotaWindow] = []
+        for (key, name) in [("session", QuotaWindow.fiveHour), ("weekly", QuotaWindow.weekly)] {
+            guard let node = included[key] as? [String: Any],
+                  let remaining = JSONUtil.double(node, "remaining_percent") else { continue }
+            windows.append(QuotaWindow(
+                name: name,
+                percent: min(max(100 - remaining, 0), 100),
+                resetTime: JSONUtil.date(node, "resets_at", "resetAt")))
+        }
+        return windows
+    }
+
+    private static func fetchOllamaCloud(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("Ollama Cloud API Key 未配置") }
+        guard let url = URL(string: "https://ollama.com/api/balance") else {
+            throw QueryError.remote("Ollama Cloud: 端点无效")
+        }
+        let json = try await getJSON(url,
+            headers: ["Authorization": "Bearer \(key)", "Accept": "application/json"],
+            label: "Ollama Cloud", timeout: timeout)
+        let windows = parseOllamaCloudTiers(json)
+        if windows.isEmpty {
+            let included = (json["included"] as? [String: Any]) ?? [:]
+            let allowance = JSONUtil.double(included, "allowance_usd")
+            if let allowance, allowance <= 0 {
+                throw QueryError.remote("Ollama Cloud: 该账户没有套餐额度（按量付费）")
+            }
+            throw QueryError.remote("Ollama Cloud: 响应形态无法识别（缺 included.allowance_usd）")
+        }
+        return ProviderUsage(kind: .ollamaCloud, ok: true, windows: windows, subtitle: "Cloud")
+    }
+
+    // MARK: 小米 MiMo Token Plan
+
+    /// 解析 `GET /v1/platform/token_plan`：`quota.total_credits` 是本期总额（含补偿积分），
+    /// 已用优先 `used_credits`，否则 `total - remaining_credits`。
+    /// 周期可月付可年付，因此落「额度」档而不是「月」。
+    static func parseMimoTokenPlanTiers(_ json: [String: Any]) -> [QuotaWindow] {
+        guard let quota = json["quota"] as? [String: Any],
+              let total = JSONUtil.double(quota, "total_credits"),
+              total.isFinite, total > 0 else { return [] }
+        let used: Double
+        if let value = JSONUtil.double(quota, "used_credits") {
+            used = value
+        } else if let remaining = JSONUtil.double(quota, "remaining_credits") {
+            used = total - remaining
+        } else {
+            return []
+        }
+        let period = (json["period"] as? [String: Any]) ?? [:]
+        return [QuotaWindow(
+            name: QuotaWindow.credits,
+            percent: min(max(used / total * 100, 0), 100),
+            used: used, total: total, unit: "积分",
+            resetTime: mimoPeriodTime(period["end_at"]))]
+    }
+
+    private static func fetchMimoTokenPlan(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("小米 MiMo Token Plan Key 未配置") }
+        guard let url = URL(string: "https://token-plan-cn.xiaomimimo.com/v1/platform/token_plan") else {
+            throw QueryError.remote("小米 MiMo: 端点无效")
+        }
+        let json = try await getJSON(url,
+            headers: ["Authorization": "Bearer \(key)", "Accept": "application/json"],
+            label: "小米 MiMo", timeout: timeout)
+
+        if let error = json["error"] as? [String: Any],
+           let message = JSONUtil.string(error, "message") {
+            throw QueryError.remote("小米 MiMo: \(message)")
+        }
+        let windows = parseMimoTokenPlanTiers(json)
+        guard !windows.isEmpty else {
+            throw QueryError.remote("小米 MiMo: 该 Key 没有 Token Plan 额度（需 tp- 开头的 Key）")
+        }
+        let planCode = JSONUtil.string(json, "plan_code") ?? ""
+        return ProviderUsage(kind: .mimoTokenPlan, ok: true, windows: windows,
+                             subtitle: planCode.isEmpty ? "Token Plan" : planCode)
+    }
+
+    /// MiMo 的周期时间是「UTC，`YYYY-MM-DD HH:mm:ss`」，转成 Date；其他格式交回通用解析
+    static func mimoPeriodTime(_ raw: Any?) -> Date? {
+        if let text = raw as? String {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(identifier: "UTC")
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            if let date = formatter.date(from: text.trimmingCharacters(in: .whitespaces)) {
+                return date
+            }
+        }
+        guard let raw else { return nil }
+        return JSONUtil.date(["v": raw], "v")
+    }
+
+    /// 单次 GET → JSON，统一处理鉴权失败与非 200
+    fileprivate static func getJSON(_ url: URL, headers: [String: String],
+                                    label: String, timeout: TimeInterval) async throws -> [String: Any] {
+        var request = URLRequest(url: url)
+        for (key, value) in headers { request.setValue(value, forHTTPHeaderField: key) }
+        let (data, response) = try await makeSession(timeout).data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw QueryError.remote("\(label): 响应解析失败 (HTTP \(status))")
+        }
+        return json
+    }
+}
+
+extension String {
+    /// 拼接端点时去掉尾部斜杠，避免出现 `//usages`
+    fileprivate func trimmingTrailingSlashes() -> String {
+        var text = self
+        while text.hasSuffix("/") { text.removeLast() }
+        return text
     }
 }

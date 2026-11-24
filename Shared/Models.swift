@@ -5,6 +5,8 @@ struct QuotaWindow: Codable, Hashable, Identifiable {
     static let fiveHour = "5小时"
     static let weekly = "7天"
     static let monthly = "月"
+    /// 不固定周期的「额度」档（小米 MiMo Token Plan 有月付也有年付，冒充「月」会误导）
+    static let credits = "额度"
 
     var name: String
     var percent: Double
@@ -24,22 +26,24 @@ struct QuotaWindow: Codable, Hashable, Identifiable {
         return total - used
     }
 
-    /// 展示排序：5小时 → 7天 → 月
+    /// 展示排序：5小时 → 7天 → 月 → 额度
     var displayOrder: Int {
         switch name {
         case Self.fiveHour: return 0
         case Self.weekly: return 1
         case Self.monthly: return 2
-        default: return 3
+        case Self.credits: return 3
+        default: return 4
         }
     }
 
-    /// 菜单栏等窄空间用的短名：5h / 周 / 月
+    /// 菜单栏等窄空间用的短名：5h / 周 / 月 / 额度
     var shortName: String {
         switch name {
         case Self.fiveHour: return "5h"
         case Self.weekly: return "周"
         case Self.monthly: return "月"
+        case Self.credits: return "额度"
         default: return name
         }
     }
@@ -53,6 +57,16 @@ enum ProviderKind: String, Codable, CaseIterable {
     case openCodeGo = "opencode-go"
     /// CommandCode 套餐（GOAT / Pro / Max…，走官方 CLI 的 /alpha 私有路由）
     case commandCode = "commandcode"
+    /// Kimi For Coding（api.kimi.com/coding，Bearer Key）
+    case kimi
+    /// MiniMax Coding Plan（api.minimaxi.com / api.minimax.io）
+    case miniMax = "minimax"
+    /// ZenMux（zenmux.ai，base_url 本身就是额度端点）
+    case zenMux = "zenmux"
+    /// Ollama Cloud（ollama.com/api/balance，Bearer Key）
+    case ollamaCloud = "ollama-cloud"
+    /// 小米 MiMo Token Plan（token-plan-cn.xiaomimimo.com，tp- 专属 Key）
+    case mimoTokenPlan = "mimo-token-plan"
 
     var displayName: String {
         switch self {
@@ -61,6 +75,11 @@ enum ProviderKind: String, Codable, CaseIterable {
         case .deepseek: return "DeepSeek"
         case .openCodeGo: return "OpenCode Go"
         case .commandCode: return "CommandCode"
+        case .kimi: return "Kimi For Coding"
+        case .miniMax: return "MiniMax"
+        case .zenMux: return "ZenMux"
+        case .ollamaCloud: return "Ollama Cloud"
+        case .mimoTokenPlan: return "小米 MiMo"
         }
     }
 
@@ -71,6 +90,11 @@ enum ProviderKind: String, Codable, CaseIterable {
         case .deepseek: return "https://platform.deepseek.com/top_up"
         case .openCodeGo: return "https://opencode.ai/console"
         case .commandCode: return "https://commandcode.ai/studio"
+        case .kimi: return "https://platform.moonshot.cn/console"
+        case .miniMax: return "https://platform.minimaxi.com/user-center/payment"
+        case .zenMux: return "https://zenmux.ai/platform"
+        case .ollamaCloud: return "https://ollama.com/settings/keys"
+        case .mimoTokenPlan: return "https://platform.xiaomimimo.com/#/console/plan-manage"
         }
     }
 
@@ -84,7 +108,8 @@ enum ProviderKind: String, Codable, CaseIterable {
 
     /// 展示与遍历的稳定顺序（纯数据层，不依赖 SwiftUI，便于脚本单独编译校验）
     static var displayOrder: [ProviderKind] {
-        [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
+        [.volcengine, .zhipu, .kimi, .miniMax, .zenMux,
+         .openCodeGo, .commandCode, .ollamaCloud, .mimoTokenPlan, .deepseek]
     }
 }
 
@@ -178,8 +203,9 @@ struct ProviderCredentials: Codable {
         case .volcengine: return "AK \(accessKey == nil ? "✗" : "✓") / SK \(secretKey == nil ? "✗" : "✓")"
         case .zhipu: return "apiKey \(apiKey == nil ? "✗" : "✓")"
         case .deepseek: return "token \(bearerToken == nil ? "✗" : "✓")"
-        case .openCodeGo: return "apiKey \(apiKey == nil ? "✗" : "✓")"
-        case .commandCode: return "apiKey \(apiKey == nil ? "✗" : "✓")"
+        case .openCodeGo, .commandCode, .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan:
+            return "apiKey \(apiKey == nil ? "✗" : "✓")"
+        case .zenMux: return "apiKey \(apiKey == nil ? "✗" : "✓") / baseUrl \(baseUrl == nil ? "✗" : "✓")"
         }
     }
 
@@ -188,8 +214,9 @@ struct ProviderCredentials: Codable {
         case .volcengine: return accessKey != nil && secretKey != nil
         case .zhipu: return apiKey != nil
         case .deepseek: return bearerToken != nil
-        case .openCodeGo: return apiKey != nil
-        case .commandCode: return apiKey != nil
+        case .openCodeGo, .commandCode, .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan:
+            return apiKey != nil
+        case .zenMux: return apiKey != nil && baseUrl != nil
         }
     }
 }

@@ -9,6 +9,11 @@ extension ProviderKind {
         case .deepseek: return "yensign.circle.fill"
         case .openCodeGo: return "chevron.left.forwardslash.chevron.right"
         case .commandCode: return "terminal.fill"
+        case .kimi: return "moon.stars.fill"
+        case .miniMax: return "bolt.horizontal.fill"
+        case .zenMux: return "point.3.connected.trianglepath.dotted"
+        case .ollamaCloud: return "cloud.fill"
+        case .mimoTokenPlan: return "leaf.fill"
         }
     }
 
@@ -19,6 +24,11 @@ extension ProviderKind {
         case .deepseek: return .purple
         case .openCodeGo: return .teal
         case .commandCode: return .indigo
+        case .kimi: return .cyan
+        case .miniMax: return .pink
+        case .zenMux: return .mint
+        case .ollamaCloud: return .gray
+        case .mimoTokenPlan: return .brown
         }
     }
 }

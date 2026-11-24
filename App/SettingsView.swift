@@ -20,6 +20,12 @@ struct SettingsView: View {
     @State private var deepseekToken = ""
     @State private var openCodeKey = ""
     @State private var commandCodeKey = ""
+    @State private var kimiKey = ""
+    @State private var miniMaxKey = ""
+    @State private var zenMuxKey = ""
+    @State private var zenMuxBaseUrl = ""
+    @State private var ollamaKey = ""
+    @State private var mimoKey = ""
     @State private var prefs = DisplayStore.load()
     @State private var effective: [ProviderCredentials] = []
     @State private var saveMessage = ""
@@ -93,6 +99,27 @@ struct SettingsView: View {
                 providerForm(.commandCode) {
                     SecureField("API Key（commandcode.ai › Studio › API Keys）", text: $commandCodeKey)
                 }
+                Divider()
+                providerForm(.kimi) {
+                    SecureField("API Key（platform.moonshot.cn › API Keys；需已订阅 Kimi For Coding）", text: $kimiKey)
+                }
+                Divider()
+                providerForm(.miniMax) {
+                    SecureField("API Key（platform.minimaxi.com › 接口密钥）", text: $miniMaxKey)
+                }
+                Divider()
+                providerForm(.zenMux) {
+                    SecureField("API Key（zenmux.ai › 平台 › API Keys）", text: $zenMuxKey)
+                    TextField("额度端点（zenmux.ai 的 base_url，如 https://zenmux.ai/api/anthropic）", text: $zenMuxBaseUrl)
+                }
+                Divider()
+                providerForm(.ollamaCloud) {
+                    SecureField("API Key（ollama.com › Settings › Keys）", text: $ollamaKey)
+                }
+                Divider()
+                providerForm(.mimoTokenPlan) {
+                    SecureField("Token Plan Key（tp- 开头，不是 sk- 按量 Key）", text: $mimoKey)
+                }
                 HStack(spacing: 10) {
                     Button("保存手动配置") { saveManual() }
                         .buttonStyle(.borderedProminent)
@@ -157,12 +184,46 @@ struct SettingsView: View {
                 openCodeKey = manual.apiKey ?? ""
             case .commandCode:
                 commandCodeKey = manual.apiKey ?? ""
+            case .kimi:
+                kimiKey = manual.apiKey ?? ""
+            case .miniMax:
+                miniMaxKey = manual.apiKey ?? ""
+            case .zenMux:
+                zenMuxKey = manual.apiKey ?? ""
+                zenMuxBaseUrl = manual.baseUrl ?? ""
+            case .ollamaCloud:
+                ollamaKey = manual.apiKey ?? ""
+            case .mimoTokenPlan:
+                mimoKey = manual.apiKey ?? ""
             }
         }
     }
 
     private func refreshEffective() {
         effective = ProvidersStore.loadCredentials()
+    }
+
+    /// 新增的五家套餐供应商：都有 apiKey，ZenMux 另外需要 base_url（额度端点就是它）
+    private func appendPlanKeys(to list: inout [ProviderCredentials]) {
+        func trimmed(_ text: String) -> String {
+            text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let simple: [(ProviderKind, String)] = [
+            (.kimi, kimiKey), (.miniMax, miniMaxKey),
+            (.ollamaCloud, ollamaKey), (.mimoTokenPlan, mimoKey),
+        ]
+        for (kind, raw) in simple {
+            let key = trimmed(raw)
+            guard !key.isEmpty else { continue }
+            list.append(ProviderCredentials(kind: kind, sourceName: ProvidersStore.manualSourceName,
+                                            apiKey: key))
+        }
+        let zenKey = trimmed(zenMuxKey)
+        let zenBase = trimmed(zenMuxBaseUrl)
+        if !zenKey.isEmpty, !zenBase.isEmpty {
+            list.append(ProviderCredentials(kind: .zenMux, sourceName: ProvidersStore.manualSourceName,
+                                            apiKey: zenKey, baseUrl: zenBase))
+        }
     }
 
     private func saveManual() {
@@ -196,6 +257,7 @@ struct SettingsView: View {
             list.append(ProviderCredentials(kind: .commandCode, sourceName: ProvidersStore.manualSourceName,
                                             apiKey: commandCode))
         }
+        appendPlanKeys(to: &list)
         ProvidersStore.saveManual(list)
         applyAndNotify()
         saveMessage = list.isEmpty ? "已清空，沿用 cc-switch 自动识别" : "已保存 \(list.count) 项手动配置"
@@ -206,6 +268,8 @@ struct SettingsView: View {
         zhipuApiKey = ""; zhipuBaseUrl = ""
         deepseekToken = ""
         openCodeKey = ""; commandCodeKey = ""
+        kimiKey = ""; miniMaxKey = ""; zenMuxKey = ""; zenMuxBaseUrl = ""
+        ollamaKey = ""; mimoKey = ""
         ProvidersStore.saveManual([])
         applyAndNotify()
         saveMessage = "已清空，沿用 cc-switch 自动识别"
@@ -279,7 +343,7 @@ struct SettingsView: View {
                 HStack(spacing: 8) {
                     Text("菜单栏显示窗口")
                         .font(.caption)
-                    ForEach([QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly], id: \.self) { name in
+                    ForEach([QuotaWindow.fiveHour, QuotaWindow.weekly, QuotaWindow.monthly, QuotaWindow.credits], id: \.self) { name in
                         Toggle(name, isOn: Binding(
                             get: { prefs.isStatusWindowEnabled(name) },
                             set: { on in
@@ -383,12 +447,27 @@ struct SettingsView: View {
                 thresholdSlider("智谱 GLM 任一窗口使用率 ≥", value: Binding(
                     get: { alerts.config.zhipuThreshold },
                     set: { alerts.config.zhipuThreshold = $0 }), color: ProviderKind.zhipu.brandColor)
+                thresholdSlider("Kimi For Coding 任一窗口使用率 ≥", value: Binding(
+                    get: { alerts.config.kimiThreshold },
+                    set: { alerts.config.kimiThreshold = $0 }), color: ProviderKind.kimi.brandColor)
+                thresholdSlider("MiniMax 任一窗口使用率 ≥", value: Binding(
+                    get: { alerts.config.miniMaxThreshold },
+                    set: { alerts.config.miniMaxThreshold = $0 }), color: ProviderKind.miniMax.brandColor)
+                thresholdSlider("ZenMux 任一窗口使用率 ≥", value: Binding(
+                    get: { alerts.config.zenMuxThreshold },
+                    set: { alerts.config.zenMuxThreshold = $0 }), color: ProviderKind.zenMux.brandColor)
                 thresholdSlider("OpenCode Go 任一窗口使用率 ≥", value: Binding(
                     get: { alerts.config.openCodeThreshold },
                     set: { alerts.config.openCodeThreshold = $0 }), color: ProviderKind.openCodeGo.brandColor)
                 thresholdSlider("CommandCode 任一窗口使用率 ≥", value: Binding(
                     get: { alerts.config.commandCodeThreshold },
                     set: { alerts.config.commandCodeThreshold = $0 }), color: ProviderKind.commandCode.brandColor)
+                thresholdSlider("Ollama Cloud 任一窗口使用率 ≥", value: Binding(
+                    get: { alerts.config.ollamaThreshold },
+                    set: { alerts.config.ollamaThreshold = $0 }), color: ProviderKind.ollamaCloud.brandColor)
+                thresholdSlider("小米 MiMo Token Plan 使用率 ≥", value: Binding(
+                    get: { alerts.config.mimoThreshold },
+                    set: { alerts.config.mimoThreshold = $0 }), color: ProviderKind.mimoTokenPlan.brandColor)
 
                 HStack(spacing: 8) {
                     Image(systemName: ProviderKind.deepseek.iconSymbol)

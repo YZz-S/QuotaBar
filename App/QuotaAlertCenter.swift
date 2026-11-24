@@ -14,6 +14,12 @@ struct AlertConfig: Codable {
     /// OpenCode Go / CommandCode：任一窗口使用率 ≥ 阈值（%）
     var openCodeThreshold: Double = 80
     var commandCodeThreshold: Double = 80
+    /// Kimi / MiniMax / ZenMux / Ollama Cloud / 小米 MiMo：任一窗口使用率 ≥ 阈值（%）
+    var kimiThreshold: Double = 80
+    var miniMaxThreshold: Double = 80
+    var zenMuxThreshold: Double = 80
+    var ollamaThreshold: Double = 80
+    var mimoThreshold: Double = 80
     var intervalMinutes: Int = 15
     /// 上次观察到的值，用于判断"跨越阈值"，避免重复通知
     var lastValues: [String: Double] = [:]
@@ -25,6 +31,11 @@ struct AlertConfig: Codable {
         case .zhipu: return zhipuThreshold
         case .openCodeGo: return openCodeThreshold
         case .commandCode: return commandCodeThreshold
+        case .kimi: return kimiThreshold
+        case .miniMax: return miniMaxThreshold
+        case .zenMux: return zenMuxThreshold
+        case .ollamaCloud: return ollamaThreshold
+        case .mimoTokenPlan: return mimoThreshold
         case .deepseek: return nil
         }
     }
@@ -35,6 +46,11 @@ struct AlertConfig: Codable {
         case .zhipu: zhipuThreshold = value
         case .openCodeGo: openCodeThreshold = value
         case .commandCode: commandCodeThreshold = value
+        case .kimi: kimiThreshold = value
+        case .miniMax: miniMaxThreshold = value
+        case .zenMux: zenMuxThreshold = value
+        case .ollamaCloud: ollamaThreshold = value
+        case .mimoTokenPlan: mimoThreshold = value
         case .deepseek: break
         }
     }
@@ -50,6 +66,11 @@ struct AlertConfig: Codable {
         deepseekThreshold = (try? c.decode(Double.self, forKey: .deepseekThreshold)) ?? 5
         openCodeThreshold = (try? c.decode(Double.self, forKey: .openCodeThreshold)) ?? 80
         commandCodeThreshold = (try? c.decode(Double.self, forKey: .commandCodeThreshold)) ?? 80
+        kimiThreshold = (try? c.decode(Double.self, forKey: .kimiThreshold)) ?? 80
+        miniMaxThreshold = (try? c.decode(Double.self, forKey: .miniMaxThreshold)) ?? 80
+        zenMuxThreshold = (try? c.decode(Double.self, forKey: .zenMuxThreshold)) ?? 80
+        ollamaThreshold = (try? c.decode(Double.self, forKey: .ollamaThreshold)) ?? 80
+        mimoThreshold = (try? c.decode(Double.self, forKey: .mimoThreshold)) ?? 80
         intervalMinutes = (try? c.decode(Int.self, forKey: .intervalMinutes)) ?? 15
         lastValues = (try? c.decode([String: Double].self, forKey: .lastValues)) ?? [:]
     }
