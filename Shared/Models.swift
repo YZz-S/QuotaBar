@@ -39,12 +39,18 @@ enum ProviderKind: String, Codable, CaseIterable {
     case volcengine
     case zhipu
     case deepseek
+    /// OpenCode Go 订阅（opencode.ai/zen/go，sk- Key）
+    case openCodeGo = "opencode-go"
+    /// CommandCode 套餐（GOAT / Pro / Max…，走官方 CLI 的 /alpha 私有路由）
+    case commandCode = "commandcode"
 
     var displayName: String {
         switch self {
         case .volcengine: return "火山方舟"
         case .zhipu: return "智谱 GLM"
         case .deepseek: return "DeepSeek"
+        case .openCodeGo: return "OpenCode Go"
+        case .commandCode: return "CommandCode"
         }
     }
 
@@ -53,9 +59,20 @@ enum ProviderKind: String, Codable, CaseIterable {
         case .volcengine: return "https://console.volcengine.com/ark"
         case .zhipu: return "https://open.bigmodel.cn/finance"
         case .deepseek: return "https://platform.deepseek.com/top_up"
+        case .openCodeGo: return "https://opencode.ai/console"
+        case .commandCode: return "https://commandcode.ai/studio"
+        }
+    }
+
+    /// 该 provider 是否用「窗口使用率」评判（余额型 provider 不参与百分比警戒）
+    var isWindowBased: Bool {
+        switch self {
+        case .deepseek: return false
+        default: return true
         }
     }
 }
+
 
 /// 一个 provider 的查询结果（成功或失败都可渲染）
 struct ProviderUsage: Codable, Identifiable, Hashable {
@@ -79,6 +96,57 @@ struct ProviderUsage: Codable, Identifiable, Hashable {
     }
 }
 
+/// 从 dotenv 文件按变量名取值（cc-switch 的 `key_env` 只存变量名，真值在用户环境里）。
+/// 依次尝试：进程环境 → ~/.hermes/.env → ~/.env → ~/.config/api-usage-show/.env。
+enum DotEnv {
+    static let candidatePaths: [String] = [
+        ".hermes/.env",
+        ".env",
+        ".config/api-usage-show/.env",
+        ".cc-switch/.env",
+    ]
+
+    private static var cache: [String: [String: String]] = [:]
+
+    static func lookup(_ name: String) -> String? {
+        if let value = ProcessInfo.processInfo.environment[name], !value.isEmpty { return value }
+        for path in candidatePaths {
+            let values = load(path)
+            if let value = values[name], !value.isEmpty { return value }
+        }
+        return nil
+    }
+
+    /// 极简 dotenv 解析：KEY=VALUE，支持 # 注释、export 前缀、成对引号；不处理多行转义
+    private static func load(_ relativePath: String) -> [String: String] {
+        if let cached = cache[relativePath] { return cached }
+        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(relativePath)
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+            cache[relativePath] = [:]
+            return [:]
+        }
+        var values: [String: String] = [:]
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            var trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+            if trimmed.hasPrefix("export ") { trimmed = String(trimmed.dropFirst(7)).trimmingCharacters(in: .whitespaces) }
+            guard let separator = trimmed.firstIndex(of: "=") else { continue }
+            let key = String(trimmed[trimmed.startIndex..<separator]).trimmingCharacters(in: .whitespaces)
+            var value = String(trimmed[trimmed.index(after: separator)...]).trimmingCharacters(in: .whitespaces)
+            if value.count >= 2, let first = value.first, let last = value.last,
+               (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+                value = String(value.dropFirst().dropLast())
+            }
+            if let comment = value.range(of: " #"), value.hasPrefix("\"") == false {
+                value = String(value[value.startIndex..<comment.lowerBound]).trimmingCharacters(in: .whitespaces)
+            }
+            if !key.isEmpty { values[key] = value }
+        }
+        cache[relativePath] = values
+        return values
+    }
+}
+
 /// 从 cc-switch 数据库识别出的查询凭据（不落日志；App 导出到 App Group 容器供沙箱化 widget 读取）
 struct ProviderCredentials: Codable {
     var kind: ProviderKind
@@ -95,6 +163,8 @@ struct ProviderCredentials: Codable {
         case .volcengine: return "AK \(accessKey == nil ? "✗" : "✓") / SK \(secretKey == nil ? "✗" : "✓")"
         case .zhipu: return "apiKey \(apiKey == nil ? "✗" : "✓")"
         case .deepseek: return "token \(bearerToken == nil ? "✗" : "✓")"
+        case .openCodeGo: return "apiKey \(apiKey == nil ? "✗" : "✓")"
+        case .commandCode: return "apiKey \(apiKey == nil ? "✗" : "✓")"
         }
     }
 
@@ -103,6 +173,8 @@ struct ProviderCredentials: Codable {
         case .volcengine: return accessKey != nil && secretKey != nil
         case .zhipu: return apiKey != nil
         case .deepseek: return bearerToken != nil
+        case .openCodeGo: return apiKey != nil
+        case .commandCode: return apiKey != nil
         }
     }
 }

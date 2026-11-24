@@ -26,7 +26,7 @@ enum ProvidersStore {
                 merged.append(manual)
             }
         }
-        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek]
+        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
         return merged.sorted { (order.firstIndex(of: $0.kind) ?? 9) < (order.firstIndex(of: $1.kind) ?? 9) }
     }
 
@@ -122,6 +122,39 @@ enum ProvidersStore {
             return ProviderCredentials(kind: .deepseek, sourceName: name, bearerToken: token)
         }
 
+        // OpenCode Go / Zen Go：baseURL 指向 opencode.ai/zen/go，key 是 sk-（key_env 或 options.apiKey）
+        let openCodeBase = inferenceBaseURL + " " + (JSONUtil.string(env, "OPENCODE_GO_BASE_URL", "OPENCODE_ZEN_BASE_URL") ?? "")
+            + " " + (JSONUtil.string(settings, "base_url") ?? "")
+            + " " + (((settings["options"] as? [String: Any]).flatMap { JSONUtil.string($0, "baseURL") }) ?? "")
+        let looksOpenCode = openCodeBase.contains("opencode.ai/zen/go") || inferenceBaseURL.contains("opencode.ai")
+        if looksOpenCode, let key = openCodeKey(settings: settings, env: env) {
+            return ProviderCredentials(kind: .openCodeGo, sourceName: name, apiKey: key)
+        }
+
+        // CommandCode：usage_script.codingPlanProvider == "command_code"，key 与 base_url 都在 provider 自身配置里
+        if enabled, codingPlanProvider == "command_code",
+           let key = JSONUtil.string(settings, "api_key", "apiKey") {
+            return ProviderCredentials(kind: .commandCode, sourceName: name, apiKey: key)
+        }
+
+        return nil
+    }
+
+    /// OpenCode Key：直接写在 provider 里 → 环境变量（含 dotenv 文件）→ options.apiKey 字面值
+    private static func openCodeKey(settings: [String: Any], env: [String: Any]) -> String? {
+        if let direct = JSONUtil.string(settings, "api_key", "apiKey") { return direct }
+        if let keyEnv = JSONUtil.string(settings, "key_env"), let value = DotEnv.lookup(keyEnv) { return value }
+        let options = (settings["options"] as? [String: Any]) ?? [:]
+        if let literal = JSONUtil.string(options, "apiKey"), !literal.hasPrefix("{env:") { return literal }
+        if let raw = JSONUtil.string(options, "apiKey"),
+           raw.hasPrefix("{env:"), raw.hasSuffix("}") {
+            let name = String(raw.dropFirst(5).dropLast())
+            if let value = DotEnv.lookup(name) { return value }
+        }
+        // cc-switch 的两个 OpenCode provider 用的都是这套环境变量名
+        for name in ["OPENCODE_GO_API_KEY", "OPENCODE_ZEN_API_KEY"] {
+            if let value = DotEnv.lookup(name) { return value }
+        }
         return nil
     }
 

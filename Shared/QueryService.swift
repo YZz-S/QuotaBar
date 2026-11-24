@@ -25,7 +25,7 @@ enum QueryService {
             for await result in group { collected.append(result) }
             return collected
         }
-        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek]
+        let order: [ProviderKind] = [.volcengine, .zhipu, .deepseek, .openCodeGo, .commandCode]
         var ordered = order.compactMap { kind in results.first { $0.kind == kind } }
         ordered.append(contentsOf: results.filter { !order.contains($0.kind) })
         return ordered
@@ -37,6 +37,8 @@ enum QueryService {
             case .volcengine: return try await fetchVolc(credential, timeout: timeout)
             case .zhipu: return try await fetchZhipu(credential, timeout: timeout)
             case .deepseek: return try await fetchDeepSeek(credential, timeout: timeout)
+            case .openCodeGo: return try await fetchOpenCodeGo(credential, timeout: timeout)
+            case .commandCode: return try await fetchCommandCode(credential, timeout: timeout)
             }
         } catch {
             return ProviderUsage(kind: credential.kind, ok: false, errorMessage: error.localizedDescription)
@@ -263,5 +265,200 @@ enum QueryService {
             balance: JSONUtil.double(main, "total_balance") ?? 0,
             currency: JSONUtil.string(main, "currency") ?? "CNY",
             isAvailable: JSONUtil.bool(json, "is_available"))
+    }
+
+    // MARK: - OpenCode Go（sk- Key，官方 usage 端点）
+
+    /// `GET https://opencode.ai/zen/go/v1/usage`，`Authorization: Bearer sk-…`
+    /// 响应：`{ usage: { rolling|weekly|monthly: { status, percent, resetsAt } } }`，
+    /// percent 实测为 0-100 整数（与 PerfPanel 同源口径）。
+    private static func fetchOpenCodeGo(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("OpenCode Go API Key 未配置") }
+        var request = URLRequest(url: URL(string: "https://opencode.ai/zen/go/v1/usage")!)
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await makeSession(timeout).data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401 || status == 403 {
+            throw QueryError.remote("OpenCode Go: 鉴权失败 (HTTP \(status))，请检查 API Key（opencode.ai/console）")
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw QueryError.remote("OpenCode Go: 响应解析失败 (HTTP \(status))")
+        }
+        if status != 200 {
+            let message = ((json["error"] as? [String: Any]).flatMap { JSONUtil.string($0, "message") }) ?? "HTTP \(status)"
+            throw QueryError.remote("OpenCode Go: \(message)")
+        }
+        guard let usage = json["usage"] as? [String: Any] else {
+            throw QueryError.remote("OpenCode Go: 响应中没有 usage 字段")
+        }
+
+        // 三个滚动窗口；缺失即未订阅该窗口。percent 实测 0-100，防御式兼容 0-1 分数形态
+        let spec: [(key: String, name: String)] = [
+            ("rolling", QuotaWindow.fiveHour),
+            ("weekly", QuotaWindow.weekly),
+            ("monthly", QuotaWindow.monthly),
+        ]
+        var raw: [(String, [String: Any])] = []
+        for item in spec {
+            if let node = usage[item.key] as? [String: Any] { raw.append((item.name, node)) }
+        }
+        guard !raw.isEmpty else {
+            throw QueryError.remote("OpenCode Go: 响应中没有 rolling/weekly/monthly 窗口")
+        }
+        let values = raw.map { JSONUtil.double($0.1, "percent") ?? 0 }
+        let fraction = values.allSatisfy { $0 >= 0 && $0 <= 1 } && values.contains { $0 > 0 }
+
+        let windows = raw.map { name, node -> QuotaWindow in
+            var percent = JSONUtil.double(node, "percent", "usagePercent") ?? 0
+            if fraction { percent *= 100 }
+            let used = JSONUtil.double(node, "usedDollars", "usageDollars")
+            let limit = JSONUtil.double(node, "limitDollars", "limit")
+            return QuotaWindow(
+                name: name,
+                percent: min(max(percent, 0), 100),
+                used: used, total: limit, unit: limit == nil ? nil : "USD",
+                resetTime: JSONUtil.date(node, "resetsAt", "resetAt", "reset_at"))
+        }
+        let plan = JSONUtil.string(json, "plan") ?? JSONUtil.string(usage, "plan") ?? ""
+        return ProviderUsage(kind: .openCodeGo, ok: true, windows: windows,
+                             subtitle: plan.isEmpty ? "Go" : plan)
+    }
+
+    // MARK: - CommandCode（GOAT 等套餐，官方 CLI 的 /alpha 私有路由）
+
+    /// 四个端点（与 cc-switch / PerfPanel 实测一致）：
+    /// 1. `/alpha/whoami?limits=1` → org.id（个人 Key 常为 null，此时省略 orgId）
+    /// 2. `/alpha/billing/credits` → credits.{monthly,purchased,free}Credits + windowLimits.{limited,fiveHour,weekly}
+    /// 3. `/alpha/billing/subscriptions` → data.{planId,currentPeriodStart,currentPeriodEnd}
+    /// 4. `/alpha/usage/summary?since=` → totalCost（当前周期已花）
+    /// 口径：5h/周 = used/cap；月 = totalCost ÷ 三个 credits 池之和；show 剩余池作为「余额」。
+    private static let commandCodeBase = "https://api.commandcode.ai"
+
+    private static func fetchCommandCode(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let key = credential.apiKey else { throw QueryError.missingCredentials("CommandCode API Key 未配置") }
+        let session = makeSession(timeout)
+
+        let who = try await commandCodeGet(key: key, path: "/alpha/whoami?limits=1", session: session)
+        let orgID = commandCodeOrgID(who)
+        let query: (String...) -> String = { pairs in
+            var parts: [String] = []
+            if !orgID.isEmpty { parts.append("orgId=\(orgID.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? orgID)") }
+            parts.append(contentsOf: pairs.filter { !$0.isEmpty })
+            return parts.isEmpty ? "" : "?" + parts.joined(separator: "&")
+        }
+
+        async let creditsTask = commandCodeGet(key: key, path: "/alpha/billing/credits" + query(), session: session)
+        async let subsTask = commandCodeGet(key: key, path: "/alpha/billing/subscriptions" + query(), session: session)
+        let (creditsJSON, subsJSON) = try await (creditsTask, subsTask)
+
+        var periodStart = "", planID = ""
+        var periodEnd: Date?
+        if let sub = subsJSON["data"] as? [String: Any] {
+            periodStart = JSONUtil.string(sub, "currentPeriodStart") ?? ""
+            periodEnd = JSONUtil.date(sub, "currentPeriodEnd")
+            planID = JSONUtil.string(sub, "planId") ?? ""
+        }
+        let summaryJSON = try await commandCodeGet(key: key, path: "/alpha/usage/summary" + query(
+            periodStart.isEmpty ? "" : "since=\(periodStart.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? periodStart)"),
+            session: session)
+
+        guard let totalCost = JSONUtil.double(summaryJSON, "totalCost") else {
+            throw QueryError.remote("CommandCode: usage/summary 缺少 totalCost 字段（接口口径可能有变）")
+        }
+        return parseCommandCode(credits: creditsJSON, spent: totalCost,
+                                planID: planID, periodEnd: periodEnd)
+    }
+
+    /// `GET /alpha/*`：Bearer Key + Accept JSON；401/403 给鉴权提示，200 携带 success=false 也视为失败
+    private static func commandCodeGet(key: String, path: String, session: URLSession) async throws -> [String: Any] {
+        var request = URLRequest(url: URL(string: commandCodeBase + path)!)
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await session.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401 || status == 403 {
+            throw QueryError.remote("CommandCode: 鉴权失败 (HTTP \(status))，请检查 API Key（commandcode.ai › Studio › API Keys）")
+        }
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw QueryError.remote("CommandCode: 响应解析失败 (HTTP \(status)) \(path)")
+        }
+        if status != 200 {
+            throw QueryError.remote("CommandCode: HTTP \(status) \(path.split(separator: "?").first ?? "")")
+        }
+        if JSONUtil.bool(json, "success") == false,
+           let error = json["error"] as? [String: Any] {
+            throw QueryError.remote("CommandCode: \(JSONUtil.string(error, "message", "code") ?? "未知错误")")
+        }
+        return json
+    }
+
+    private static func commandCodeOrgID(_ who: [String: Any]) -> String {
+        if let org = who["org"] as? [String: Any], let id = JSONUtil.string(org, "id") { return id }
+        if let data = who["data"] as? [String: Any],
+           let org = data["org"] as? [String: Any], let id = JSONUtil.string(org, "id") { return id }
+        return ""
+    }
+
+    /// credits + 已花费 → 窗口列表；`limited=false`（纯按量套餐）不解析滚动窗口
+    private static func parseCommandCode(credits root: [String: Any], spent: Double,
+                                         planID: String, periodEnd: Date?) -> ProviderUsage {
+        let credits = (root["credits"] as? [String: Any]) ?? root
+        let pool = max(0, JSONUtil.double(credits, "monthlyCredits") ?? 0)
+            + max(0, JSONUtil.double(credits, "purchasedCredits") ?? 0)
+            + max(0, JSONUtil.double(credits, "freeCredits") ?? 0)
+
+        let windowLimits = (root["windowLimits"] as? [String: Any])
+            ?? (credits["windowLimits"] as? [String: Any]) ?? [:]
+        let paygOnly = JSONUtil.bool(windowLimits, "limited") == false
+
+        var windows: [QuotaWindow] = []
+        if !paygOnly {
+            for (key, label) in [("fiveHour", QuotaWindow.fiveHour), ("weekly", QuotaWindow.weekly)] {
+                guard let win = windowLimits[key] as? [String: Any] else { continue }
+                let cap = JSONUtil.double(win, "cap") ?? 0
+                guard cap > 0 else { continue }                       // 未配置的窗口跳过
+                let used = JSONUtil.double(win, "used") ?? 0
+                windows.append(QuotaWindow(
+                    name: label,
+                    percent: min(max(used / cap * 100, 0), 100),
+                    used: used, total: cap, unit: "USD",
+                    resetTime: JSONUtil.date(win, "resetAt")))
+            }
+        }
+        if pool > 0 {
+            // credits 是「剩余」池：套餐月度总额 = 已花 + 剩余（实测 GOAT：30.91 + 39.35 = 70.26）。
+            // 因此使用率 = spent /(spent + remaining)；直接 spent/remaining 会在周期后段严重高估。
+            let allotment = spent + pool
+            windows.append(QuotaWindow(
+                name: QuotaWindow.monthly,
+                percent: min(max(spent / allotment * 100, 0), 100),
+                used: spent, total: allotment, unit: "USD",
+                resetTime: periodEnd,
+                remainingOverride: pool))
+        }
+        guard !windows.isEmpty else {
+            return ProviderUsage(kind: .commandCode, ok: false,
+                                 errorMessage: "credits 池为 0 且无滚动窗口（套餐可能未生效，检查 Studio › Billing）")
+        }
+        let plan = commandCodePlanLabel(planID)
+        return ProviderUsage(kind: .commandCode, ok: true,
+                             windows: windows, subtitle: plan,
+                             balance: pool > 0 ? pool : nil,
+                             currency: pool > 0 ? "USD" : nil)
+    }
+
+    private static func commandCodePlanLabel(_ planID: String) -> String {
+        switch planID.lowercased() {
+        case "": return ""
+        case "go": return "Go"
+        case "individual-goat", "goat": return "GOAT"
+        case "pro": return "Pro"
+        case "max10", "max_10x", "max-10x": return "Max 10x"
+        case "max20", "max_20x", "max-20x": return "Max 20x"
+        case "provider": return "Provider"
+        case let other: return other
+        }
     }
 }
