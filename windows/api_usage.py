@@ -211,8 +211,15 @@ def load_from_database():
             except json.JSONDecodeError:
                 continue
             credential = _identify(name, settings, meta)
-            if credential and all(c["kind"] != credential["kind"] for c in credentials):
+            if not credential:
+                continue
+            same = next((c for c in credentials if c["kind"] == credential["kind"]), None)
+            if same is None:
                 credentials.append(credential)
+            else:
+                # 同一家有多条 provider（不同 app_type / 不同时期的 key）时留作备选，
+                # 首条认证失败会自动降级到下一条，避免取到已失效的旧 key
+                same.setdefault("alternates", []).append(credential)
     except sqlite3.Error:
         pass
     finally:
@@ -483,7 +490,11 @@ def parse_volc_plan(payload):
             message = j_str(error, "Message") or ""
             return [], f"{code}: {message}"
         result = payload.get("Result") if isinstance(payload.get("Result"), dict) else payload
+        status = j_str(result, "Status")
         items = result.get("QuotaUsage") or result.get("Usages") or result.get("Details")
+        if not items and status:
+            # 订阅状态异常（如 Reclaimed=已回收/退订）时接口返回 200 但无额度明细
+            return [], f"订阅状态: {status}"
     else:
         items = None
     windows = []
@@ -522,9 +533,13 @@ def fetch_volc(credential, timeout):
             if parsed:
                 windows, last_error = parsed, None
                 break
-            last_error = parse_error or f"HTTP {status}"
+            # 具体原因（如「订阅状态: Reclaimed」）优先，不被后续的泛化 HTTP 200 覆盖
+            if parse_error:
+                last_error = last_error or parse_error
+            else:
+                last_error = last_error or f"HTTP {status}"
         except (ConnectionError, ValueError) as e:
-            last_error = str(e)
+            last_error = last_error or str(e)
     if not windows:
         return usage("volcengine", False, error=last_error or "无额度数据",
                      source=credential.get("sourceName"))
@@ -833,7 +848,19 @@ FETCHERS = {"volcengine": fetch_volc, "zhipu": fetch_zhipu,
 
 def fetch_all(credentials, timeout=DEFAULT_TIMEOUT):
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(credentials) or 1) as pool:
-        return list(pool.map(lambda c: FETCHERS[c["kind"]](c, timeout), credentials))
+        return list(pool.map(lambda c: _fetch_with_fallback(c, timeout), credentials))
+
+
+def _fetch_with_fallback(credential, timeout):
+    """首选凭据失败时依次尝试同家的其它 provider 记录（同一 key 可能已换）。"""
+    result = FETCHERS[credential["kind"]](credential, timeout)
+    for alt in credential.get("alternates") or []:
+        if result["ok"]:
+            break
+        alt_result = FETCHERS[alt["kind"]](alt, timeout)
+        if alt_result["ok"]:
+            return alt_result
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -904,7 +931,7 @@ def toast(title, body):
     try:
         script = (
             "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications,"
-            " ContentType=Windows] | Out-Null;"
+            " ContentType=WindowsRuntime] | Out-Null;"
             "$t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent("
             "[Windows.UI.Notifications.ToastTemplateType]::ToastText02);"
             "$x=$t.GetElementsByTagName('text');"
@@ -975,7 +1002,7 @@ def render(results, style, credentials, thresholds):
     header_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines.append(style.bold(f"== API Usage ({header_time}) =="))
     lines.append(style.dim(
-        f"凭据: cc-switch 数据库{' + 手动覆盖' if any(c['sourceName'] == '手动配置' for c in credentials) else ''}"
+        f"凭据: cc-switch 数据库{' + 手动覆盖' if any(c.get('sourceName') == '手动配置' for c in credentials) else ''}"
         f" · 警戒: 火山≥{fmt_pct(thresholds['volc'])}% 智谱≥{fmt_pct(thresholds['zhipu'])}%"
         f" OC≥{fmt_pct(thresholds['opencode'])}% CC≥{fmt_pct(thresholds['commandcode'])}%"
         f" 余额≤¥{fmt_pct(thresholds['deepseek'])}"))
@@ -1092,7 +1119,7 @@ def run_once(args, style, thresholds, prev_over=None):
 def handle_set_commands(args):
     if not (args.set_volc or args.set_zhipu or args.set_deepseek or args.clear_manual):
         return False
-    manual = [c for c in load_manual() if c["sourceName"] == "手动配置"]
+    manual = [c for c in load_manual() if c.get("sourceName") == "手动配置"]
 
     def replace(entry):
         for i, c in enumerate(manual):

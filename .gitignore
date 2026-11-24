@@ -72,3 +72,7 @@ DerivedData/
 .zcode/
 .mimosa/
 .video_agent/
+
+# Python
+__pycache__/
+*.py[cod]
