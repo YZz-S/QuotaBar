@@ -6,6 +6,8 @@
   火山方舟 Coding Plan : OpenAPI V4 签名（AK/SK），GetCodingPlanUsage 失败回落 GetAFPUsage
   智谱 GLM Coding Plan : GET /api/monitor/usage/quota/limit，Authorization 裸 key
   DeepSeek             : GET /user/balance，Authorization: Bearer
+  OpenCode Go          : GET opencode.ai/zen/go/v1/usage，Bearer sk- Key
+  CommandCode          : 官方 CLI 的 /alpha 私有路由（whoami/credits/subscriptions/summary）
 
 凭据自动从 cc-switch 数据库（~/.cc-switch/cc-switch.db，只读）识别，
 可用 --set-volc/--set-zhipu/--set-deepseek 手动覆盖，存于 ~/.api-usage-show/。
@@ -38,8 +40,9 @@ MANUAL_FILE = STATE_DIR / "manual-credentials.json"
 SNAPSHOT_FILE = STATE_DIR / "snapshot.json"
 CC_SWITCH_DB = Path.home() / ".cc-switch" / "cc-switch.db"
 
-KIND_ORDER = ["volcengine", "zhipu", "deepseek"]
-DISPLAY_NAME = {"volcengine": "火山方舟", "zhipu": "智谱 GLM", "deepseek": "DeepSeek"}
+KIND_ORDER = ["volcengine", "zhipu", "deepseek", "opencode-go", "commandcode"]
+DISPLAY_NAME = {"volcengine": "火山方舟", "zhipu": "智谱 GLM", "deepseek": "DeepSeek",
+                "opencode-go": "OpenCode Go", "commandcode": "CommandCode"}
 DEFAULT_TIMEOUT = 12
 USER_AGENT = "ApiUsageShow-Windows/1.0"
 
@@ -255,6 +258,76 @@ def _identify(name, settings, meta):
             "kind": "deepseek", "sourceName": name,
             "bearerToken": env.get("ANTHROPIC_AUTH_TOKEN") or env.get("DEEPSEEK_API_KEY"),
         }
+
+    # OpenCode Go / Zen Go：baseURL 指向 opencode.ai/zen/go，key 是 sk-
+    oc_base = " ".join([
+        base_url,
+        j_str(env, "OPENCODE_GO_BASE_URL", "OPENCODE_ZEN_BASE_URL") or "",
+        j_str(settings, "base_url") or "",
+        j_str(settings.get("options") or {}, "baseURL") or "",
+    ])
+    if "opencode.ai" in oc_base:
+        key = _opencode_key(settings)
+        if key:
+            return {"kind": "opencode-go", "sourceName": name, "apiKey": key}
+
+    # CommandCode：usage_script.codingPlanProvider == "command_code"，key 在 provider 自身
+    if enabled and coding_plan_provider == "command_code":
+        key = j_str(settings, "api_key", "apiKey")
+        if key:
+            return {"kind": "commandcode", "sourceName": name, "apiKey": key}
+    return None
+
+
+def _dotenv_lookup(name):
+    """cc-switch 的 key_env 只存变量名，真值在 dotenv 文件里（对应 Swift 的 DotEnv）"""
+    if os.environ.get(name):
+        return os.environ[name]
+    for rel in (".hermes/.env", ".env", ".config/api-usage-show/.env", ".cc-switch/.env"):
+        path = Path.home() / rel
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[7:].strip()
+            key, sep, value = line.partition("=")
+            if not sep or key.strip() != name:
+                continue
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ("\"", "'"):
+                value = value[1:-1]
+            if value:
+                return value
+    return None
+
+
+def _opencode_key(settings):
+    """直接写 provider → key_env → options.apiKey → 两个约定环境变量名"""
+    direct = j_str(settings, "api_key", "apiKey")
+    if direct:
+        return direct
+    key_env = j_str(settings, "key_env")
+    if key_env:
+        value = _dotenv_lookup(key_env)
+        if value:
+            return value
+    raw = j_str(settings.get("options") or {}, "apiKey")
+    if raw:
+        if raw.startswith("{env:") and raw.endswith("}"):
+            value = _dotenv_lookup(raw[5:-1])
+            if value:
+                return value
+        else:
+            return raw
+    for name in ("OPENCODE_GO_API_KEY", "OPENCODE_ZEN_API_KEY"):
+        value = _dotenv_lookup(name)
+        if value:
+            return value
     return None
 
 
@@ -295,7 +368,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 _OPENER = urllib.request.build_opener(_NoRedirect)
 
-_FIXED_HOSTS = {"open.volcengineapi.com", "api.deepseek.com", "open.bigmodel.cn"}
+_FIXED_HOSTS = {"open.volcengineapi.com", "api.deepseek.com", "open.bigmodel.cn",
+                "opencode.ai", "api.commandcode.ai"}
 
 
 def _validate_url(url):
@@ -562,7 +636,199 @@ def fetch_deepseek(credential, timeout):
                  source=credential.get("sourceName"))
 
 
-FETCHERS = {"volcengine": fetch_volc, "zhipu": fetch_zhipu, "deepseek": fetch_deepseek}
+# ---------------------------------------------------------------------------
+# OpenCode Go（sk- Key，官方 usage 端点）
+
+OPENCODE_USAGE_URL = "https://opencode.ai/zen/go/v1/usage"
+
+
+def fetch_opencode(credential, timeout):
+    """GET /zen/go/v1/usage → usage.{rolling,weekly,monthly}.{percent,resetsAt}
+    percent 实测 0-100；防御式兼容 0-1 分数形态与 usedDollars/limitDollars"""
+    key = credential.get("apiKey")
+    if not key:
+        return usage("opencode-go", False, error="OpenCode Go API Key 未配置",
+                     source=credential.get("sourceName"))
+    try:
+        status, payload = http_json("GET", OPENCODE_USAGE_URL,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Accept": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("opencode-go", False, error=str(e), source=credential.get("sourceName"))
+    if status in (401, 403):
+        return usage("opencode-go", False,
+                     error=f"OpenCode Go: 鉴权失败 (HTTP {status})，请检查 API Key（opencode.ai/console）",
+                     source=credential.get("sourceName"))
+    if not isinstance(payload, dict):
+        return usage("opencode-go", False, error=f"OpenCode Go: 响应解析失败 (HTTP {status})",
+                     source=credential.get("sourceName"))
+    if status != 200:
+        error = payload.get("error")
+        message = (j_str(error, "message") if isinstance(error, dict) else None) or f"HTTP {status}"
+        return usage("opencode-go", False, error=f"OpenCode Go: {message}",
+                     source=credential.get("sourceName"))
+    body = payload.get("usage")
+    if not isinstance(body, dict):
+        return usage("opencode-go", False, error="OpenCode Go: 响应中没有 usage 字段",
+                     source=credential.get("sourceName"))
+
+    found = [(label, body[k]) for k, label in (("rolling", W_5H), ("weekly", W_7D), ("monthly", W_MONTH))
+             if isinstance(body.get(k), dict)]
+    if not found:
+        return usage("opencode-go", False,
+                     error="OpenCode Go: 响应中没有 rolling/weekly/monthly 窗口",
+                     source=credential.get("sourceName"))
+
+    values = [j_num(node, "percent") or 0 for _, node in found]
+    fraction = all(0 <= v <= 1 for v in values) and any(v > 0 for v in values)
+
+    windows = []
+    for label, node in found:
+        percent = j_num(node, "percent", "usagePercent") or 0
+        if fraction:
+            percent *= 100
+        used = j_num(node, "usedDollars", "usageDollars")
+        limit = j_num(node, "limitDollars", "limit")
+        windows.append(quota_window(
+            label, max(0.0, min(100.0, percent)), used=used, total=limit,
+            unit="USD" if limit is not None else None,
+            reset_time=j_date(node, "resetsAt", "resetAt", "reset_at")))
+    plan = j_str(payload, "plan") or j_str(body, "plan") or "Go"
+    return usage("opencode-go", True, windows=windows, subtitle=plan,
+                 source=credential.get("sourceName"))
+
+
+# ---------------------------------------------------------------------------
+# CommandCode（GOAT 等套餐，官方 CLI 的 /alpha 私有路由）
+
+COMMANDCODE_BASE = "https://api.commandcode.ai"
+
+
+def _cc_get(key, path, timeout):
+    status, payload = http_json("GET", COMMANDCODE_BASE + path,
+                               {"Authorization": f"Bearer {key}",
+                                "Accept": "application/json"}, timeout)
+    if status in (401, 403):
+        raise ConnectionError(f"CommandCode: 鉴权失败 (HTTP {status})，"
+                              f"请检查 API Key（commandcode.ai › Studio › API Keys）")
+    if not isinstance(payload, dict):
+        raise ConnectionError(f"CommandCode: 响应解析失败 (HTTP {status}) {path}")
+    if status != 200:
+        raise ConnectionError(f"CommandCode: HTTP {status} {path.split('?')[0]}")
+    if payload.get("success") is False:
+        error = payload.get("error")
+        message = (j_str(error, "message", "code") if isinstance(error, dict) else None) or "未知错误"
+        raise ConnectionError(f"CommandCode: {message}")
+    return payload
+
+
+def _cc_org_id(who):
+    for path in (("org",), ("data", "org")):
+        node = who
+        for step in path:
+            node = node.get(step) if isinstance(node, dict) else None
+        if isinstance(node, dict):
+            value = j_str(node, "id")
+            if value:
+                return value
+    return ""
+
+
+def _cc_query(org_id, *pairs):
+    parts = []
+    if org_id:
+        parts.append("orgId=" + urllib.parse.quote(org_id, safe=""))
+    parts.extend(p for p in pairs if p)
+    return ("?" + "&".join(parts)) if parts else ""
+
+
+def _cc_plan_label(plan_id):
+    return {
+        "": "", "go": "Go", "individual-goat": "GOAT", "goat": "GOAT", "pro": "Pro",
+        "max10": "Max 10x", "max_10x": "Max 10x", "max-10x": "Max 10x",
+        "max20": "Max 20x", "max_20x": "Max 20x", "max-20x": "Max 20x",
+        "provider": "Provider",
+    }.get((plan_id or "").lower(), plan_id)
+
+
+def fetch_commandcode(credential, timeout):
+    """四个 /alpha 路由：whoami → credits + subscriptions → usage/summary。
+    5小时/周 = used/cap；月 = spent ÷(spent + 剩余池) —— credits 返回的是剩余，
+    直接 spent/remaining 会在周期后段严重高估。"""
+    key = credential.get("apiKey")
+    if not key:
+        return usage("commandcode", False, error="CommandCode API Key 未配置",
+                     source=credential.get("sourceName"))
+    try:
+        who = _cc_get(key, "/alpha/whoami?limits=1", timeout)
+        org_id = _cc_org_id(who)
+        credits = _cc_get(key, "/alpha/billing/credits" + _cc_query(org_id), timeout)
+        subs = _cc_get(key, "/alpha/billing/subscriptions" + _cc_query(org_id), timeout)
+
+        period_start, plan_id, period_end = "", "", None
+        data = subs.get("data")
+        if isinstance(data, dict):
+            period_start = j_str(data, "currentPeriodStart") or ""
+            period_end = j_date(data, "currentPeriodEnd")
+            plan_id = j_str(data, "planId") or ""
+
+        since = ("since=" + urllib.parse.quote(period_start, safe="")) if period_start else ""
+        summary = _cc_get(key, "/alpha/usage/summary" + _cc_query(org_id, since), timeout)
+    except ConnectionError as e:
+        return usage("commandcode", False, error=str(e), source=credential.get("sourceName"))
+
+    spent = j_num(summary, "totalCost")
+    if spent is None:
+        return usage("commandcode", False,
+                     error="CommandCode: usage/summary 缺少 totalCost 字段（接口口径可能有变）",
+                     source=credential.get("sourceName"))
+
+    pool_node = credits.get("credits") if isinstance(credits.get("credits"), dict) else credits
+    pool = 0.0
+    for field in ("monthlyCredits", "purchasedCredits", "freeCredits"):
+        pool += max(0.0, j_num(pool_node, field) or 0.0)
+
+    limits = credits.get("windowLimits")
+    if not isinstance(limits, dict):
+        limits = pool_node.get("windowLimits") if isinstance(pool_node, dict) else None
+    limits = limits if isinstance(limits, dict) else {}
+    payg_only = limits.get("limited") is False
+
+    windows = []
+    if not payg_only:
+        for field, label in (("fiveHour", W_5H), ("weekly", W_7D)):
+            node = limits.get(field)
+            if not isinstance(node, dict):
+                continue
+            cap = j_num(node, "cap") or 0
+            if cap <= 0:
+                continue
+            used = j_num(node, "used") or 0
+            windows.append(quota_window(
+                label, max(0.0, min(100.0, used / cap * 100)),
+                used=used, total=cap, unit="USD",
+                reset_time=j_date(node, "resetAt")))
+    if pool > 0:
+        allotment = spent + pool
+        windows.append(quota_window(
+            W_MONTH, max(0.0, min(100.0, spent / allotment * 100)),
+            used=spent, total=allotment, unit="USD",
+            reset_time=period_end, remaining_override=pool))
+
+    if not windows:
+        return usage("commandcode", False,
+                     error="CommandCode: credits 池为 0 且无滚动窗口（套餐可能未生效）",
+                     source=credential.get("sourceName"))
+    return usage("commandcode", True, windows=windows,
+                 subtitle=_cc_plan_label(plan_id),
+                 balance=pool if pool > 0 else None,
+                 currency="USD" if pool > 0 else None,
+                 source=credential.get("sourceName"))
+
+
+FETCHERS = {"volcengine": fetch_volc, "zhipu": fetch_zhipu,
+            "deepseek": fetch_deepseek, "opencode-go": fetch_opencode,
+            "commandcode": fetch_commandcode}
 
 
 def fetch_all(credentials, timeout=DEFAULT_TIMEOUT):
@@ -586,7 +852,8 @@ def save_snapshot(results):
 # ---------------------------------------------------------------------------
 # 警戒（对应 App 设置页的阈值通知；toast 走 PowerShell WinRT，无需装模块）
 
-DEFAULT_ALERTS = {"volc": 80.0, "zhipu": 80.0, "deepseek": 10.0}
+DEFAULT_ALERTS = {"volc": 80.0, "zhipu": 80.0, "deepseek": 10.0,
+                  "opencode": 80.0, "commandcode": 80.0}
 
 
 def parse_alert_spec(spec):
@@ -598,12 +865,16 @@ def parse_alert_spec(spec):
         key, _, value = part.partition("=")
         key = key.strip().lower()
         if key not in thresholds:
-            raise SystemExit(f"未知警戒项: {key}（可选 volc/zhipu/deepseek）")
+            raise SystemExit(f"未知警戒项: {key}（可选 volc/zhipu/deepseek/opencode/commandcode）")
         try:
             thresholds[key] = float(value)
         except ValueError:
             raise SystemExit(f"警戒阈值无效: {part}")
     return thresholds
+
+
+THRESHOLD_KEY = {"volcengine": "volc", "zhipu": "zhipu",
+                 "opencode-go": "opencode", "commandcode": "commandcode"}
 
 
 def check_alerts(results, thresholds):
@@ -616,7 +887,9 @@ def check_alerts(results, thresholds):
             if result["ok"] and balance is not None and balance <= limit:
                 alerts.append((kind, f"DeepSeek 余额 ¥{balance:g} ≤ ¥{limit:g}"))
         else:
-            key = "volc" if kind == "volcengine" else "zhipu"
+            key = THRESHOLD_KEY.get(kind)
+            if key is None:
+                continue
             limit = thresholds[key]
             for w in result.get("windows", []):
                 if w["percent"] >= limit:
@@ -704,6 +977,7 @@ def render(results, style, credentials, thresholds):
     lines.append(style.dim(
         f"凭据: cc-switch 数据库{' + 手动覆盖' if any(c['sourceName'] == '手动配置' for c in credentials) else ''}"
         f" · 警戒: 火山≥{fmt_pct(thresholds['volc'])}% 智谱≥{fmt_pct(thresholds['zhipu'])}%"
+        f" OC≥{fmt_pct(thresholds['opencode'])}% CC≥{fmt_pct(thresholds['commandcode'])}%"
         f" 余额≤¥{fmt_pct(thresholds['deepseek'])}"))
     lines.append("")
 
@@ -726,6 +1000,10 @@ def render(results, style, credentials, thresholds):
             state_text = "" if state is None else ("  状态: 可用" if state else "  状态: 不可用")
             lines.append(f"  余额 {color(f'{symbol}{balance:g} {currency}')}{state_text}")
         else:
+            if result.get("balance") is not None:
+                currency = (result.get("currency") or "USD").upper()
+                symbol = {"CNY": "¥", "USD": "$"}.get(currency, currency + " ")
+                lines.append(f"  余额 {symbol}{result['balance']:.2f}")
             for w in sorted(result.get("windows", []), key=window_display_order):
                 color = level_color(style, w["percent"])
                 reset_text = ""
@@ -857,7 +1135,7 @@ def handle_set_commands(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="API Usage Show（Windows 版）：火山方舟 / 智谱 GLM / DeepSeek 用量查询",
+        description="API Usage Show（Windows 版）：火山方舟 / 智谱 GLM / DeepSeek / OpenCode Go / CommandCode 用量查询",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="示例:\n"
                "  api_usage.py                 查询一次并打印\n"
@@ -873,7 +1151,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, metavar="秒",
                         help="单请求超时（默认 12）")
     parser.add_argument("--alert", default=None, metavar="规格",
-                        help="警戒阈值，如 volc=80,zhipu=80,deepseek=10")
+                        help="警戒阈值，如 volc=80,zhipu=80,deepseek=10,opencode=80,commandcode=80")
     parser.add_argument("--no-toast", dest="toast", action="store_false",
                         help="越线时只打印，不发 Windows 通知")
     parser.add_argument("--no-color", dest="color", action="store_false",

@@ -1,6 +1,6 @@
 # API Usage Show — Windows 版
 
-与 macOS 小组件同源的命令行工具：查询 **火山方舟 Coding Plan / 智谱 GLM Coding Plan / DeepSeek** 三家额度，凭据自动复用 [cc-switch](https://github.com/farion1231/cc-switch) 的配置。仅需 Python 3.10+（纯标准库，零依赖）。
+与 macOS 小组件同源的命令行工具：查询 **火山方舟 Coding Plan / 智谱 GLM Coding Plan / DeepSeek / OpenCode Go / CommandCode** 五家额度，凭据自动复用 [cc-switch](https://github.com/farion1231/cc-switch) 的配置。仅需 Python 3.10+（纯标准库，零依赖）。
 
 ```
 :: 查询一次
@@ -24,6 +24,9 @@ python windows\api_usage.py --list
    - 火山：`usage_script.accessKeyId / secretAccessKey`（region 从 `ANTHROPIC_BASE_URL` 推导）
    - 智谱：`usage_script.apiKey / baseUrl`
    - DeepSeek：`env.ANTHROPIC_AUTH_TOKEN`（base_url 含 `api.deepseek.com`）
+   - OpenCode Go：baseURL 含 `opencode.ai/zen/go`，Key 取 `api_key` → `key_env` → `options.apiKey`
+     （`key_env` 只存变量名，真值从 `~\.hermes\.env` / `~\.env` 等 dotenv 文件解析）
+   - CommandCode：`usage_script.codingPlanProvider == "command_code"`，Key 在 provider 的 `api_key`
    在 cc-switch 里改 key 后重跑即可，无需在本工具里再配一遍。
 2. **手动覆盖**（优先级更高）：
 
