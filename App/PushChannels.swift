@@ -100,7 +100,7 @@ enum SMTPSender {
         let port = config.smtpPort > 0 ? config.smtpPort : 465
 
         let temporary = FileManager.default.temporaryDirectory
-            .appendingPathComponent("apiusage-smtp-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("quotabar-smtp-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporary) }
 
@@ -159,6 +159,9 @@ enum SMTPSender {
         lines.append("url = \"\(scheme)://\(host):\(port)\"")
         if port == 587 { lines.append("ssl-reqd") }
         else if port != 465 { lines.append("ssl") }
+        // QQ / 163 等国内邮箱的 AUTH PLAIN 实现与 curl 构造的三段式不兼容，会返回 535/67；
+        // 必须显式指定 LOGIN（服务端 EHLO 里同时宣告 LOGIN PLAIN XOAUTH2）。
+        lines.append("login-options = AUTH=LOGIN")
         lines.append("mail-from = \(quoted(from))")
         for recipient in recipients {
             lines.append("mail-rcpt = \(quoted(recipient))")
@@ -182,11 +185,11 @@ enum SMTPSender {
             .joined(separator: "\r\n")
 
         var lines: [String] = []
-        lines.append("From: \(encodedWord("API Usage")) <\(from)>")
+        lines.append("From: \(encodedWord("QuotaBar")) <\(from)>")
         lines.append("To: " + recipients.joined(separator: ", "))
         lines.append("Subject: \(encodedWord(subject))")
         lines.append("Date: \(dateFormatter.string(from: Date()))")
-        lines.append("Message-ID: <\(UUID().uuidString)@apiusage.local>")
+        lines.append("Message-ID: <\(UUID().uuidString)@quotabar.local>")
         lines.append("MIME-Version: 1.0")
         lines.append("Content-Type: text/plain; charset=utf-8")
         lines.append("Content-Transfer-Encoding: base64")
