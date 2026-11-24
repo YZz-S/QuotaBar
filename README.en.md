@@ -155,12 +155,12 @@ See [windows/README-WINDOWS.md](windows/README-WINDOWS.md). The menu bar and wid
 ```
 ApiUsageShow.xcodeproj/   Hand-written project: app + widget extension targets
 App/                      ApiUsageShowApp (TabView + AppDelegate), StatusView (usage + provider toggles),
-                          ModelsView (price tables), SettingsView (manual keys + display scope + alerts + push),
+                          SettingsView (manual keys + display scope + alerts + push),
                           StatusBarController (menu bar item and menu), QuotaAlertCenter (polling),
                           PushChannels (SMTP / WeCom)
 Widget/                   Timeline, RefreshUsageIntent (interactive refresh), the three layouts
 Shared/                   Models (+DotEnv), ProvidersStore (cc-switch discovery), QueryService (5 providers),
-                          DisplayPreferences, SnapshotCache, ModelCatalog, ViewHelpers
+                          DisplayPreferences, SnapshotCache, ViewHelpers
 scripts/                  UsageCheck.swift (terminal self-check), make_icons.swift (icon generation)
 windows/                  Windows CLI (single-file Python, feature-equivalent)
 ```

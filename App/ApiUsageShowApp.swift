@@ -10,8 +10,6 @@ struct ApiUsageShowApp: App {
             TabView {
                 StatusView()
                     .tabItem { Label("用量", systemImage: "gauge.with.dots.needle.33percent") }
-                ModelsView()
-                    .tabItem { Label("模型", systemImage: "cpu") }
                 SettingsView()
                     .tabItem { Label("设置", systemImage: "gearshape") }
             }

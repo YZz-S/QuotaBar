@@ -14,8 +14,6 @@
 		2A000024 /* QueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000058 /* QueryService.swift */; };
 		2A000025 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000059 /* SnapshotCache.swift */; };
 		2A000026 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005A /* ViewHelpers.swift */; };
-		2A000027 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005B /* ModelCatalog.swift */; };
-		2A000029 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005C /* ModelsView.swift */; };
 		2A00002A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005D /* SettingsView.swift */; };
 		2A00002B /* QuotaAlertCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005E /* QuotaAlertCenter.swift */; };
 		2A00002D /* PushChannels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000063 /* PushChannels.swift */; };
@@ -29,7 +27,6 @@
 		2A000045 /* QueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000058 /* QueryService.swift */; };
 		2A000046 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000059 /* SnapshotCache.swift */; };
 		2A000047 /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005A /* ViewHelpers.swift */; };
-		2A000048 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A00005B /* ModelCatalog.swift */; };
 		2A000049 /* DisplayPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000064 /* DisplayPreferences.swift */; };
 		2A00004A /* DisplayPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000064 /* DisplayPreferences.swift */; };
 		2A00004B /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A000065 /* StatusBarController.swift */; };
@@ -73,10 +70,8 @@
 		2A000058 /* QueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryService.swift; sourceTree = "<group>"; };
 		2A000059 /* SnapshotCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotCache.swift; sourceTree = "<group>"; };
 		2A00005A /* ViewHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
-		2A00005B /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
 		2A000064 /* DisplayPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPreferences.swift; sourceTree = "<group>"; };
 		2A000065 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
-		2A00005C /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 		2A00005D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2A00005E /* QuotaAlertCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaAlertCenter.swift; sourceTree = "<group>"; };
 		2A000063 /* PushChannels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushChannels.swift; sourceTree = "<group>"; };
@@ -108,7 +103,6 @@
 			children = (
 				2A000050 /* ApiUsageShowApp.swift */,
 				2A000051 /* StatusView.swift */,
-				2A00005C /* ModelsView.swift */,
 				2A00005D /* SettingsView.swift */,
 				2A00005E /* QuotaAlertCenter.swift */,
 				2A000063 /* PushChannels.swift */,
@@ -137,7 +131,6 @@
 				2A000058 /* QueryService.swift */,
 				2A000059 /* SnapshotCache.swift */,
 				2A00005A /* ViewHelpers.swift */,
-				2A00005B /* ModelCatalog.swift */,
 				2A000064 /* DisplayPreferences.swift */,
 			);
 			path = Shared;
@@ -221,8 +214,6 @@
 				2A000024 /* QueryService.swift in Sources */,
 				2A000025 /* SnapshotCache.swift in Sources */,
 				2A000026 /* ViewHelpers.swift in Sources */,
-				2A000027 /* ModelCatalog.swift in Sources */,
-				2A000029 /* ModelsView.swift in Sources */,
 				2A00002A /* SettingsView.swift in Sources */,
 				2A00002B /* QuotaAlertCenter.swift in Sources */,
 				2A00002D /* PushChannels.swift in Sources */,
@@ -243,7 +234,6 @@
 				2A000045 /* QueryService.swift in Sources */,
 				2A000046 /* SnapshotCache.swift in Sources */,
 				2A000047 /* ViewHelpers.swift in Sources */,
-				2A000048 /* ModelCatalog.swift in Sources */,
 				2A00004A /* DisplayPreferences.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

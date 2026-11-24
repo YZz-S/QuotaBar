@@ -194,7 +194,7 @@ private struct BalanceRow: View {
     }
 }
 
-// MARK: - 大号：三家完整窗口 + 支持模型
+// MARK: - 大号：全部供应商完整窗口
 
 struct LargeUsageView: View {
     var usages: [ProviderUsage]
@@ -215,42 +215,17 @@ struct LargeUsageView: View {
                         .foregroundStyle(.tertiary)
                     RefreshButton(size: 10)
                 }
+                // provider 之间均分剩余高度（原来靠底部模型页脚收尾，页脚删掉后靠间距撑开）
                 ForEach(usages) { usage in
                     ProviderSection(usage: usage)
+                    if usage.id != usages.last?.id {
+                        Spacer(minLength: 4)
+                    }
                 }
                 Spacer(minLength: 0)
-                modelsFooter
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 2)
-        }
-    }
-
-    private var modelsFooter: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Divider()
-            footerLine(icon: ProviderKind.volcengine.iconSymbol, color: ProviderKind.volcengine.brandColor,
-                       label: "方舟支持", text: ModelCatalog.ark.summary)
-            footerLine(icon: ProviderKind.zhipu.iconSymbol, color: ProviderKind.zhipu.brandColor,
-                       label: "GLM 支持", text: ModelCatalog.glm.summary)
-            footerLine(icon: ProviderKind.openCodeGo.iconSymbol, color: ProviderKind.openCodeGo.brandColor,
-                       label: "OpenCode", text: ModelCatalog.opencodeGo.summary)
-        }
-    }
-
-    private func footerLine(icon: String, color: Color, label: String, text: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 7.5))
-                .foregroundStyle(color)
-            Text(label)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(text)
-                .font(.system(size: 8))
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-                .truncationMode(.tail)
         }
     }
 

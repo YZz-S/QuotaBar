@@ -155,12 +155,12 @@ python windows\api_usage.py --list           :: 只看识别到的凭据（脱�
 ```
 ApiUsageShow.xcodeproj/   手写工程：App + Widget Extension 两个 target
 App/                      ApiUsageShowApp(TabView + AppDelegate), StatusView(用量 + 供应商勾选),
-                          ModelsView(模型价格表), SettingsView(手动 Key + 显示范围 + 警戒 + 推送),
+                          SettingsView(手动 Key + 显示范围 + 警戒 + 推送),
                           StatusBarController(菜单栏项与菜单), QuotaAlertCenter(定时检查),
                           PushChannels(邮件 / 企业微信)
 Widget/                   时间线、RefreshUsageIntent（交互式刷新按钮）、三种尺寸视图
 Shared/                   Models(+DotEnv), ProvidersStore(cc-switch 识别), QueryService(五厂商),
-                          DisplayPreferences(显示偏好), SnapshotCache, ModelCatalog, ViewHelpers
+                          DisplayPreferences(显示偏好), SnapshotCache, ViewHelpers
 scripts/                  UsageCheck.swift(终端自检), make_icons.swift(图标生成)
 windows/                  Windows 命令行版（Python 单文件，能力等价）
 ```
