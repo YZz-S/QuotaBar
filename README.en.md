@@ -49,6 +49,12 @@ The capture above is in "remaining" mode: one menu bar item per provider — Com
 
 Three sizes (small / medium / large). The system refreshes them on its ~15-minute budget; each size also has a ↻ button for a manual refresh.
 
+<p>
+<img src="images/widget.png" alt="Large desktop widget" width="300">
+</p>
+
+The capture above is the large widget: one card per provider, stacked, with balance and every window's progress visible at a glance. Clicking a card opens that provider's console.
+
 ### Low-quota alerts
 
 Local notifications when any window of Volcengine / Zhipu / OpenCode Go / CommandCode crosses your threshold, or when DeepSeek's balance drops below yours. Can also push to **email (SMTP)** or a **WeCom group bot**. Each window alerts once when it crosses upward — no repeat spam.
