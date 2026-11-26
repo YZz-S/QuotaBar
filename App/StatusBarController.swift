@@ -173,7 +173,8 @@ final class StatusBarController: ObservableObject {
         var head = usage.kind.displayName
         if let subtitle = usage.subtitle, !subtitle.isEmpty { head += " · \(subtitle)" }
         lines.append(head)
-        if let balance = usage.balanceText { lines.append("余额 \(balance)") }
+        if let balance = usage.balanceText { lines.append("套餐余额 \(balance)") }
+        if let paid = usage.paidBalanceText { lines.append(paid) }
         for window in prefs.statusWindows(of: usage) {
             // 两种口径都写出来，但顺序随当前选择，读起来不费解
             let used = window.percent.percentText

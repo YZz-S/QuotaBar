@@ -163,7 +163,8 @@ def window_display_order(w):
 
 
 def usage(kind, ok, windows=None, subtitle=None, balance=None,
-          currency=None, is_available=None, error=None, source=None):
+          currency=None, is_available=None, error=None, source=None,
+          paid_balance=None):
     return {
         "kind": kind,
         "ok": ok,
@@ -171,6 +172,8 @@ def usage(kind, ok, windows=None, subtitle=None, balance=None,
         "windows": windows or [],
         "subtitle": subtitle,
         "balance": balance,
+        # 额外充值/赠送的付费额度（CommandCode purchased + free），与套餐月度额度分开
+        "paidBalance": paid_balance,
         "currency": currency,
         "isAvailable": is_available,
         "errorMessage": error,
@@ -878,10 +881,19 @@ def fetch_commandcode(credential, timeout):
                      error="CommandCode: usage/summary 缺少 totalCost 字段（接口口径可能有变）",
                      source=credential.get("sourceName"))
 
+    # 剩余池按来源拆开：monthlyCredits 是订阅每月发放（属「套餐」），
+    # purchasedCredits/freeCredits 是额外充值/赠送（属「付费」）。两者混算会互相稀释。
     pool_node = credits.get("credits") if isinstance(credits.get("credits"), dict) else credits
-    pool = 0.0
-    for field in ("monthlyCredits", "purchasedCredits", "freeCredits"):
-        pool += max(0.0, j_num(pool_node, field) or 0.0)
+    monthly_remain = max(0.0, j_num(pool_node, "monthlyCredits") or 0.0)
+    paid_remain = (max(0.0, j_num(pool_node, "purchasedCredits") or 0.0)
+                   + max(0.0, j_num(pool_node, "freeCredits") or 0.0))
+    pool = monthly_remain + paid_remain
+
+    # 套餐池已花：summary 回传 totalMonthlyCredits；缺失时按剩余占比摊销
+    monthly_spent = j_num(summary, "totalMonthlyCredits")
+    if monthly_spent is None:
+        total_remain = pool if pool > 0 else 1.0
+        monthly_spent = spent * (monthly_remain / total_remain)
 
     limits = credits.get("windowLimits")
     if not isinstance(limits, dict):
@@ -903,20 +915,24 @@ def fetch_commandcode(credential, timeout):
                 label, max(0.0, min(100.0, used / cap * 100)),
                 used=used, total=cap, unit="USD",
                 reset_time=j_date(node, "resetAt")))
-    if pool > 0:
-        allotment = spent + pool
+    # 套餐月度：monthly 池是「剩余」，套餐总额 = 已花 + 剩余（直接 spent/剩余 会虚高）
+    if monthly_remain > 0 or monthly_spent > 0:
+        allotment = monthly_spent + monthly_remain
         windows.append(quota_window(
-            W_MONTH, max(0.0, min(100.0, spent / allotment * 100)),
-            used=spent, total=allotment, unit="USD",
-            reset_time=period_end, remaining_override=pool))
+            W_MONTH, max(0.0, min(100.0, monthly_spent / allotment * 100)),
+            used=monthly_spent, total=allotment, unit="USD",
+            reset_time=period_end, remaining_override=monthly_remain))
 
-    if not windows:
+    if not windows and paid_remain <= 0:
         return usage("commandcode", False,
                      error="CommandCode: credits 池为 0 且无滚动窗口（套餐可能未生效）",
                      source=credential.get("sourceName"))
+    # 付费额度（purchased + free）不随套餐周期重置，单独记 paidBalance；
+    # 并入「月」会把套餐使用率摊薄，塞进 windows 则会在菜单栏显示成「付费 0%」
     return usage("commandcode", True, windows=windows,
                  subtitle=_cc_plan_label(plan_id),
-                 balance=pool if pool > 0 else None,
+                 balance=monthly_remain if monthly_remain > 0 else None,
+                 paid_balance=paid_remain if paid_remain > 0 else None,
                  currency="USD" if pool > 0 else None,
                  source=credential.get("sourceName"))
 

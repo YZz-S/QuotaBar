@@ -372,8 +372,10 @@ enum QueryService {
         guard let totalCost = JSONUtil.double(summaryJSON, "totalCost") else {
             throw QueryError.remote("CommandCode: usage/summary 缺少 totalCost 字段（接口口径可能有变）")
         }
+        // 套餐池已花（totalMonthlyCredits）；缺失则传 nil，由解析器按剩余占比摊销
         return parseCommandCode(credits: creditsJSON, spent: totalCost,
-                                planID: planID, periodEnd: periodEnd)
+                                planID: planID, periodEnd: periodEnd,
+                                monthlySpent: JSONUtil.double(summaryJSON, "totalMonthlyCredits"))
     }
 
     /// `GET /alpha/*`：Bearer Key + Accept JSON；401/403 给鉴权提示，200 携带 success=false 也视为失败
@@ -406,13 +408,27 @@ enum QueryService {
         return ""
     }
 
-    /// credits + 已花费 → 窗口列表；`limited=false`（纯按量套餐）不解析滚动窗口
-    private static func parseCommandCode(credits root: [String: Any], spent: Double,
-                                         planID: String, periodEnd: Date?) -> ProviderUsage {
+    /// credits + 已花费 → 窗口列表；`limited=false`（纯按量套餐）不解析滚动窗口。
+    /// 套餐额度（monthly）与付费额度（purchased + free）分开统计：池子不同，混算会互相稀释。
+    /// - Parameter monthlySpent: summary 的 totalMonthlyCredits（套餐池已花）；nil 时按剩余占比摊销
+    static func parseCommandCode(credits root: [String: Any], spent: Double,
+                                 planID: String, periodEnd: Date?,
+                                 monthlySpent: Double? = nil) -> ProviderUsage {
         let credits = (root["credits"] as? [String: Any]) ?? root
-        let pool = max(0, JSONUtil.double(credits, "monthlyCredits") ?? 0)
-            + max(0, JSONUtil.double(credits, "purchasedCredits") ?? 0)
+        // monthlyCredits = 订阅每月发放，周期结束作废 → 「套餐」
+        // purchasedCredits / freeCredits = 额外充值、赠送，不随周期清零 → 「付费」
+        let monthlyRemain = max(0, JSONUtil.double(credits, "monthlyCredits") ?? 0)
+        let paidRemain = max(0, JSONUtil.double(credits, "purchasedCredits") ?? 0)
             + max(0, JSONUtil.double(credits, "freeCredits") ?? 0)
+        let pool = monthlyRemain + paidRemain
+        // 已花分池：summary 的 total{Monthly,Purchased,Free}Credits；缺失时按剩余占比摊销
+        let monthSpent: Double
+        if let monthlySpent {
+            monthSpent = monthlySpent
+        } else {
+            let totalRemain = pool > 0 ? pool : 1
+            monthSpent = spent * (monthlyRemain / totalRemain)
+        }
 
         let windowLimits = (root["windowLimits"] as? [String: Any])
             ?? (credits["windowLimits"] as? [String: Any]) ?? [:]
@@ -432,25 +448,28 @@ enum QueryService {
                     resetTime: JSONUtil.date(win, "resetAt")))
             }
         }
-        if pool > 0 {
-            // credits 是「剩余」池：套餐月度总额 = 已花 + 剩余（实测 GOAT：30.91 + 39.35 = 70.26）。
+        if monthlyRemain > 0 || monthSpent > 0 {
+            // 套餐 monthly 池是「剩余」：套餐总额 = 已花 + 剩余（实测 GOAT：37.88 + 32.39 = 70.27）。
             // 因此使用率 = spent /(spent + remaining)；直接 spent/remaining 会在周期后段严重高估。
-            let allotment = spent + pool
+            let allotment = monthSpent + monthlyRemain
             windows.append(QuotaWindow(
                 name: QuotaWindow.monthly,
-                percent: min(max(spent / allotment * 100, 0), 100),
-                used: spent, total: allotment, unit: "USD",
+                percent: min(max(monthSpent / allotment * 100, 0), 100),
+                used: monthSpent, total: allotment, unit: "USD",
                 resetTime: periodEnd,
-                remainingOverride: pool))
+                remainingOverride: monthlyRemain))
         }
-        guard !windows.isEmpty else {
+        // 付费额度单独记在 paidBalance（不随套餐周期重置）；并入「月」会把套餐使用率摊薄，
+        // 也不放进 windows —— QuotaWindow.percent 非可选，塞个 0 会让菜单栏显示成「付费 0%」。
+        guard !windows.isEmpty || paidRemain > 0 else {
             return ProviderUsage(kind: .commandCode, ok: false,
                                  errorMessage: "credits 池为 0 且无滚动窗口（套餐可能未生效，检查 Studio › Billing）")
         }
         let plan = commandCodePlanLabel(planID)
         return ProviderUsage(kind: .commandCode, ok: true,
                              windows: windows, subtitle: plan,
-                             balance: pool > 0 ? pool : nil,
+                             balance: monthlyRemain > 0 ? monthlyRemain : nil,
+                             paidBalance: paidRemain > 0 ? paidRemain : nil,
                              currency: pool > 0 ? "USD" : nil)
     }
 

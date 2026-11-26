@@ -214,12 +214,15 @@ private struct UsageCard: View {
                         .foregroundStyle(.secondary)
                 } else {
                     // 余额型套餐（CommandCode 的 credits 池等）：把剩余额度单独提一行，比只给百分比直观
-                    if usage.balance != nil {
+                    if usage.balance != nil || usage.paidBalance != nil {
                         HStack(spacing: 6) {
                             Image(systemName: "creditcard.fill")
                                 .font(.caption2)
                                 .foregroundStyle(usage.kind.brandColor)
-                            Text("剩余额度 \(usage.balanceText ?? "")")
+                            // 套餐月度额度与额外充值的付费额度分开写，避免看成同一个池
+                            Text(usage.paidBalanceText != nil
+                                 ? "套餐剩余 \(usage.balanceText ?? "—") · \(usage.paidBalanceText ?? "")"
+                                 : "剩余额度 \(usage.balanceText ?? "")")
                                 .font(.caption.weight(.medium))
                                 .monospacedDigit()
                             Spacer()

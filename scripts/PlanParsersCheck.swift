@@ -31,7 +31,9 @@ struct PlanParsersCheck {
         checkZenMux()
         checkOllamaCloud()
         checkMimo()
+        checkCommandCode()
         checkWindowOrdering()
+        checkPrimaryWindow()
 
         print("")
         if failures == 0 {
@@ -283,6 +285,114 @@ struct PlanParsersCheck {
         }
     }
 
+    // MARK: CommandCode（GOAT 等套餐）
+
+    /// fixture 取自 2026-11-27 实测的 /alpha 响应（GOAT 周期内），字段层级与真实报文一致。
+    static func checkCommandCode() {
+        let credits: [String: Any] = [
+            "credits": ["monthlyCredits": 32.3878278101,
+                        "purchasedCredits": 0, "freeCredits": 0],
+            "windowLimits": [
+                "limited": true,
+                "fiveHour": ["used": 0.1034115348, "cap": 14],
+                "weekly": ["used": 5.6383312296, "cap": 35],
+            ],
+        ]
+        let monthly = QueryService.parseCommandCode(
+            credits: credits, spent: 37.878413964299995,
+            planID: "individual-goat", periodEnd: nil)
+        expect(monthly.ok, "CommandCode: 有窗口时解析成功", "得到 \(monthly.errorMessage ?? "")")
+        expect(monthly.subtitle == "GOAT", "CommandCode: planId individual-goat → GOAT")
+        expect(monthly.windows.count == 3, "CommandCode: 出 5h + 周 + 月三档", "得到 \(monthly.windows.count)")
+
+        let byName = Dictionary(uniqueKeysWithValues: monthly.windows.map { ($0.name, $0) })
+        expect(close(byName[QuotaWindow.fiveHour]?.percent ?? -1, 0.1034115348 / 14 * 100),
+               "CommandCode: 5h = used/cap")
+        expect(close(byName[QuotaWindow.weekly]?.percent ?? -1, 5.6383312296 / 35 * 100),
+               "CommandCode: 周 = used/cap")
+
+        // 核心：credits 是「剩余」，总额 = 已花 + 剩余。按 spent/剩余 会算成 117% 被截到 100%。
+        let month = byName[QuotaWindow.monthly]
+        expect(close(month?.percent ?? -1, 37.878413964299995 / (37.878413964299995 + 32.3878278101) * 100),
+               "CommandCode: 月 = 已花 ÷(已花 + 剩余)，不是 ÷ 剩余",
+               "得到 \(month?.percent ?? -1)")
+        expect(close(month?.total ?? -1, 37.878413964299995 + 32.3878278101),
+               "CommandCode: 月总额 = 已花 + 剩余")
+        expect(close(month?.remainingOverride ?? -1, 32.3878278101),
+               "CommandCode: 月剩余取 credits 池")
+        expect((month?.percent ?? 100) < 60,
+               "CommandCode: 还有 $32 余额时不能显示成满额",
+               "得到 \(month?.percent ?? -1)")
+
+        // 纯按量（limited=false）：不出滚动窗口，只出月度档
+        let payg: [String: Any] = [
+            "credits": ["monthlyCredits": 20.0, "purchasedCredits": 0, "freeCredits": 0],
+            "windowLimits": ["limited": false],
+        ]
+        let paygUsage = QueryService.parseCommandCode(credits: payg, spent: 50, planID: "provider", periodEnd: nil)
+        expect(paygUsage.windows.count == 1 && paygUsage.windows[0].name == QuotaWindow.monthly,
+               "CommandCode: limited=false 不出滚动窗口")
+
+        // cap 缺省 / 为 0 的窗口跳过
+        let noCap: [String: Any] = [
+            "credits": ["monthlyCredits": 10.0],
+            "windowLimits": ["limited": true,
+                             "fiveHour": ["used": 1, "cap": 0],
+                             "weekly": ["used": 2, "cap": 0]],
+        ]
+        let noCapUsage = QueryService.parseCommandCode(credits: noCap, spent: 5, planID: "", periodEnd: nil)
+        expect(noCapUsage.windows.count == 1 && noCapUsage.windows[0].name == QuotaWindow.monthly,
+               "CommandCode: cap<=0 的窗口跳过，只剩月度档")
+
+        // 池与窗口都为空 → 明确失败，而不是给一个空壳成功
+        let empty: [String: Any] = ["credits": [:]]
+        expect(!QueryService.parseCommandCode(credits: empty, spent: 0, planID: "", periodEnd: nil).ok,
+               "CommandCode: 无池无窗口时返回失败")
+
+        // ── 套餐 vs 付费分池：买了充值不能稀释套餐使用率
+        //    套餐 50 已花 + 20 剩余（总额 70），另充值 30 未花
+        let mixed: [String: Any] = [
+            "credits": ["monthlyCredits": 20.0, "purchasedCredits": 30.0, "freeCredits": 0],
+            "windowLimits": ["limited": false],
+        ]
+        let split = QueryService.parseCommandCode(
+            credits: mixed, spent: 68, planID: "individual-goat", periodEnd: nil,
+            monthlySpent: 50)
+        let splitMonthly = split.windows.first { $0.name == QuotaWindow.monthly }
+        expect(close(splitMonthly?.percent ?? -1, 50.0 / 70.0 * 100),
+               "CommandCode: 充值不稀释套餐月使用率（套餐 50/70 = 71.4%）",
+               "得到 \(splitMonthly?.percent ?? -1)")
+        expect(close(splitMonthly?.remainingOverride ?? -1, 20),
+               "CommandCode: 月剩余只算 monthly 池，不含充值")
+        expect(close(split.paidBalance ?? -1, 30),
+               "CommandCode: 付费额度单独记为 paidBalance = purchased + free")
+        expect(!split.windows.contains { $0.name == QuotaWindow.credits },
+               "CommandCode: 付费额度不塞进 windows（否则菜单栏会显示「付费 0%」）")
+
+        // 无充值时不出现付费额度，避免每行都多一个 $0.00
+        expect(monthly.paidBalance == nil, "CommandCode: 无充值时不生成付费额度")
+
+        // 纯按量 + 只有充值余额：不报「套餐未生效」，靠 paidBalance 托底
+        let paygPaid: [String: Any] = [
+            "credits": ["monthlyCredits": 0, "purchasedCredits": 12.5],
+            "windowLimits": ["limited": false],
+        ]
+        let paygPaidUsage = QueryService.parseCommandCode(
+            credits: paygPaid, spent: 7.5, planID: "provider", periodEnd: nil,
+            monthlySpent: 0)
+        expect(paygPaidUsage.ok && close(paygPaidUsage.paidBalance ?? -1, 12.5),
+               "CommandCode: 纯按量只有付费余额时仍成功，paidBalance=12.5")
+
+        // summary 缺分池字段 → 按剩余占比摊销，不能整体失败
+        let fallback = QueryService.parseCommandCode(
+            credits: mixed, spent: 68, planID: "", periodEnd: nil)
+        expect(fallback.ok, "CommandCode: 缺分池字段时摊销兜底而不是失败")
+        let monthlySpentApprox = 68 * (20.0 / 50.0)
+        expect(close(fallback.windows.first { $0.name == QuotaWindow.monthly }?.percent ?? -1,
+                     monthlySpentApprox / (monthlySpentApprox + 20) * 100),
+               "CommandCode: 摊销后套餐已花 = 68 ×(20/50)")
+    }
+
     // MARK: 展示排序
 
     static func checkWindowOrdering() {
@@ -292,5 +402,23 @@ struct PlanParsersCheck {
         expect(sorted == [QuotaWindow.fiveHour, QuotaWindow.weekly,
                           QuotaWindow.monthly, QuotaWindow.credits],
                "窗口展示顺序：5小时 → 7天 → 月 → 额度", "得到 \(sorted)")
+    }
+
+    // MARK: 主窗口选取
+
+    /// primaryWindow 要取「使用率最高」，否则 CommandCode 的月 53.9% 会被 5h 的 0.7% 顶掉
+    static func checkPrimaryWindow() {
+        func usage(_ percents: [(String, Double)]) -> ProviderUsage {
+            ProviderUsage(kind: .commandCode, ok: true,
+                          windows: percents.map { QuotaWindow(name: $0.0, percent: $0.1) })
+        }
+        let cc = usage([(QuotaWindow.fiveHour, 0.74), (QuotaWindow.weekly, 16.11), (QuotaWindow.monthly, 53.91)])
+        expect(cc.primaryWindow?.name == QuotaWindow.monthly,
+               "主窗口：取使用率最高的月档，不是排第一的 5h",
+               "得到 \(cc.primaryWindow?.name ?? "nil")")
+        let hot = usage([(QuotaWindow.fiveHour, 92), (QuotaWindow.weekly, 30), (QuotaWindow.monthly, 40)])
+        expect(hot.primaryWindow?.name == QuotaWindow.fiveHour,
+               "主窗口：5h 最紧张时取 5h")
+        expect(usage([]).primaryWindow == nil, "主窗口：无窗口时为 nil")
     }
 }

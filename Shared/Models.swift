@@ -119,11 +119,15 @@ struct ProviderUsage: Codable, Identifiable, Hashable {
     var kind: ProviderKind
     var ok: Bool
     var queryDate: Date = Date()
-    /// 窗口型指标（火山 / 智谱），已按使用率降序，第一个是主窗口
+    /// 窗口型指标（火山 / 智谱 / CommandCode 等）。顺序由各解析器决定（多为周期顺序 5h→周→月），
+    /// 不保证按使用率排序；要取「最紧张的一档」用 `primaryWindow`，要周期顺序展示用 `windowsInDisplayOrder`。
     var windows: [QuotaWindow] = []
     var subtitle: String? = nil
     /// 余额型指标（DeepSeek）
     var balance: Double? = nil
+    /// 额外充值/赠送的付费额度（CommandCode purchased + free）。不随套餐周期重置，
+    /// 与套餐月度额度分开统计；不放进 `windows`，否则 percent=0 会在菜单栏显示成「付费 0%」。
+    var paidBalance: Double? = nil
     var currency: String? = nil
     var isAvailable: Bool? = nil
     var errorMessage: String? = nil

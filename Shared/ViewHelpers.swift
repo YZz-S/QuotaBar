@@ -83,20 +83,32 @@ extension QuotaWindow {
 }
 
 extension ProviderUsage {
-    var primaryWindow: QuotaWindow? { windows.first }
+    /// 主窗口 = 使用率最高的那个，用于菜单栏/图标上色与「自动：取使用率最高」的供应商聚焦。
+    /// 不能取 `windows.first`：解析器按周期顺序追加（5h → 周 → 月），第一个往往是压力最小的 5h，
+    /// 会让 CommandCode「月 53.9%」被 5h 的 0.7% 顶掉，跨供应商比较时被排到最后。
+    /// 展示顺序另走 `windowsInDisplayOrder`（按周期固定排序），不受这里影响。
+    var primaryWindow: QuotaWindow? { windows.max { $0.percent < $1.percent } }
     var fraction: Double? { primaryWindow.map { $0.fraction } }
     var primaryLevelColor: Color? { primaryWindow.map { levelColor($0.percent) } }
 
     var balanceText: String? {
         guard let balance else { return nil }
-        let symbol: String
+        return currencySymbol + balance.money2
+    }
+
+    /// 付费额度（额外充值/赠送）文案：「付费额度 $30.00」；无付费额度时为 nil
+    var paidBalanceText: String? {
+        guard let paidBalance, paidBalance > 0 else { return nil }
+        return "付费额度 \(currencySymbol)\(paidBalance.money2)"
+    }
+
+    private var currencySymbol: String {
         switch currency?.uppercased() {
-        case "CNY", "RMB": symbol = "¥"
-        case "USD": symbol = "$"
-        case .some(let other): symbol = other + " "
-        case .none: symbol = ""
+        case "CNY", "RMB": return "¥"
+        case "USD": return "$"
+        case .some(let other): return other + " "
+        case .none: return ""
         }
-        return symbol + balance.money2
     }
 
     var timeCaption: String {

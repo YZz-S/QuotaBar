@@ -280,8 +280,9 @@ struct SmallUsageView: View {
     var usages: [ProviderUsage]
 
     private var focus: ProviderUsage? {
+        // 按主窗口（使用率最高）挑最紧张的一家，与菜单栏「自动」聚焦同口径
         usages.filter { $0.ok && !$0.windows.isEmpty }
-            .max { ($0.windows.first?.percent ?? 0) < ($1.windows.first?.percent ?? 0) }
+            .max { ($0.primaryWindow?.percent ?? 0) < ($1.primaryWindow?.percent ?? 0) }
             ?? usages.first { $0.ok }
             ?? usages.first
     }
