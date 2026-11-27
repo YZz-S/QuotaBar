@@ -133,10 +133,19 @@ enum DisplayStore {
         return prefs
     }
 
-    static func save(_ prefs: DisplayPreferences) {
+    @discardableResult
+    static func save(_ prefs: DisplayPreferences) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard let data = try? JSONEncoder().encode(prefs) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        guard let data = try? JSONEncoder().encode(prefs) else { return false }
+        do {
+            try data.write(to: fileURL, options: .atomic)
+            return true
+        } catch {
+            // 不能静默吞掉：写入失败时界面会表现成「勾选框点不动」，
+            // 排查必须能看到真实原因（常见于 App Group 权限不到位）
+            NSLog("[QuotaBar] display.json 写入失败: %@ -> %@", fileURL.path, String(describing: error))
+            return false
+        }
     }
 }

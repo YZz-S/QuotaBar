@@ -128,10 +128,11 @@ struct StatusView: View {
                 }
                 ForEach(credentials, id: \.kind) { credential in
                     let known = credential.kind
-                    let on = prefs.isEnabled(known)
                     HStack(spacing: 9) {
+                        // get 必须现算 prefs.isEnabled(known)，不能捕获循环体里的局部常量：
+                        // 捕获的话取消勾选后 get 仍返回旧值，复选框看起来「点不动」
                         Toggle("", isOn: Binding(
-                            get: { on },
+                            get: { prefs.isEnabled(known) },
                             set: { newValue in
                                 prefs.setEnabled(known, newValue)
                                 DisplayStore.save(prefs)
@@ -140,11 +141,11 @@ struct StatusView: View {
                             .toggleStyle(.checkbox)
                             .labelsHidden()
                         Image(systemName: credential.kind.iconSymbol)
-                            .foregroundStyle(on ? credential.kind.brandColor : Color.secondary)
+                            .foregroundStyle(prefs.isEnabled(known) ? credential.kind.brandColor : Color.secondary)
                             .frame(width: 22)
                         Text(credential.kind.displayName)
                             .fontWeight(.medium)
-                            .foregroundStyle(on ? .primary : .secondary)
+                            .foregroundStyle(prefs.isEnabled(known) ? .primary : .secondary)
                         Text(credential.sourceName == ProvidersStore.manualSourceName
                              ? "手动配置" : "← \(credential.sourceName)")
                             .font(.caption)
