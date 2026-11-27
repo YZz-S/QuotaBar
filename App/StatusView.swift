@@ -80,10 +80,9 @@ struct StatusView: View {
             credentials = ProvidersStore.loadCredentials()
             prefs = DisplayStore.load()
             ProvidersStore.exportCredentials(credentials)
-            if let cached = SnapshotCache.load(), !cached.isEmpty {
-                results = prefs.filter(cached)
-                fromCache = true
-            }
+            reloadSnapshot()
+            // 面板打开时读到的最新快照也同步给顶栏，避免两边停在不同查询时间
+            StatusBarController.shared.reloadFromCache()
             WidgetCenter.shared.reloadAllTimelines()
             QuotaAlertCenter.shared.start()
         }
@@ -92,10 +91,22 @@ struct StatusView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .displayPreferencesChanged)) { _ in
             prefs = DisplayStore.load()
-            if let cached = SnapshotCache.load(), !cached.isEmpty {
-                results = prefs.filter(cached)
-            }
+            reloadSnapshot()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .statusBarShouldRefresh)) { _ in
+            // 后台检查 / 小组件写盘后同步面板；正在手动查询时跳过，
+            // 避免用尚未写完的旧缓存覆盖刚取回的结果。
+            guard !running else { return }
+            prefs = DisplayStore.load()
+            reloadSnapshot()
+        }
+    }
+
+    /// 从 App Group 快照重读结果（后台检查 / 小组件写盘 / 偏好变化都会触发）
+    private func reloadSnapshot() {
+        guard let cached = SnapshotCache.load(), !cached.isEmpty else { return }
+        results = prefs.filter(cached)
+        fromCache = true
     }
 
     @ViewBuilder private var credentialsSection: some View {

@@ -18,6 +18,8 @@ final class StatusBarController: ObservableObject {
     private var started = false
     private var lastUsages: [ProviderUsage] = []
     private var isRefreshing = false
+    /// 监听 snapshot.json 的变化：小组件在独立进程里刷新，NotificationCenter 传不过来
+    private let snapshotWatcher = SnapshotWatcher()
 
     private init() {}
 
@@ -33,6 +35,11 @@ final class StatusBarController: ObservableObject {
             forName: .statusBarShouldRefresh, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in self?.reloadFromCache() }
             }
+        // 警戒中心的定时查询、小组件刷新都只写 snapshot.json，不会走到 StatusBarController；
+        // 这里监听容器目录，任何进程写快照都让顶栏与已打开的面板重新读缓存。
+        snapshotWatcher.start {
+            NotificationCenter.default.post(name: .statusBarShouldRefresh, object: nil)
+        }
         reloadFromCache()
     }
 
@@ -461,6 +468,54 @@ final class StatusBarController: ObservableObject {
 }
 
 extension Notification.Name {
-    /// 快照变化，状态栏据此重画（由 App 查询完成 / 偏好变化时发出）
+    /// 快照变化，状态栏与「用量」页据此重画（由后台检查 / 小组件写盘 / 手动刷新 / 偏好变化时发出）
     static let statusBarShouldRefresh = Notification.Name("QuotaBar.statusBarShouldRefresh")
+}
+
+/// 监听 App Group 容器里的 snapshot.json。警戒中心、主窗口、小组件都会写这个文件，
+/// 其中小组件在独立进程里，NotificationCenter 传不过来，只能靠文件变化把 UI 叫醒。
+/// 监听目录而不是文件本身：快照用 `.atomic` 写入（先写临时文件再 rename），
+/// 文件描述符会随 rename 失效，目录 fd 则一直有效。
+private final class SnapshotWatcher: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "QuotaBar.snapshot-watcher")
+    private var source: DispatchSourceFileSystemObject?
+    private var directoryFD: Int32 = -1
+    private var lastModified: Date?
+    private var onChange: (() -> Void)?
+
+    /// 只启动一次；已启动时重复调用无副作用。
+    func start(onChange: @escaping () -> Void) {
+        guard source == nil else { return }
+        self.onChange = onChange
+        let directory = AppGroup.dataDirectory
+        directoryFD = open(directory.path, O_EVTONLY)
+        guard directoryFD >= 0 else {
+            NSLog("[QuotaBar] snapshot watcher 无法打开目录: %@", directory.path)
+            return
+        }
+        lastModified = Self.snapshotModified()
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: directoryFD,
+            eventMask: [.write, .rename, .delete],
+            queue: queue)
+        source.setEventHandler { [weak self] in
+            guard let self,
+                  let modified = Self.snapshotModified(),
+                  modified != self.lastModified else { return }
+            self.lastModified = modified
+            NSLog("[QuotaBar] snapshot.json 变化，刷新顶栏与面板")
+            DispatchQueue.main.async { self.onChange?() }
+        }
+        source.setCancelHandler { [weak self] in
+            guard let self, self.directoryFD >= 0 else { return }
+            close(self.directoryFD)
+            self.directoryFD = -1
+        }
+        self.source = source
+        source.resume()
+    }
+
+    private static func snapshotModified() -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: SnapshotCache.fileURL.path))?[.modificationDate] as? Date
+    }
 }

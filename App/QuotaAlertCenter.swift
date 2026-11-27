@@ -160,6 +160,9 @@ final class QuotaAlertCenter: ObservableObject {
         let results = await QueryService.fetchAll(targets)
         if !results.isEmpty {
             SnapshotCache.save(results)
+            // 后台检查写盘后要叫醒顶栏与已打开的面板：它们的刷新是独立于查询流程的。
+            // （小组件在另一个进程里写快照，由 StatusBarController 的 SnapshotWatcher 兜底。）
+            NotificationCenter.default.post(name: .statusBarShouldRefresh, object: nil)
             WidgetCenter.shared.reloadAllTimelines()
         }
         let alerts = evaluate(prefs.filter(results))
