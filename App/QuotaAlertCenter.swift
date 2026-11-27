@@ -36,7 +36,7 @@ struct AlertConfig: Codable {
         case .zenMux: return zenMuxThreshold
         case .ollamaCloud: return ollamaThreshold
         case .mimoTokenPlan: return mimoThreshold
-        case .deepseek: return nil
+        case .deepseek, .mimoBalance: return nil
         }
     }
 
@@ -51,7 +51,7 @@ struct AlertConfig: Codable {
         case .zenMux: zenMuxThreshold = value
         case .ollamaCloud: ollamaThreshold = value
         case .mimoTokenPlan: mimoThreshold = value
-        case .deepseek: break
+        case .deepseek, .mimoBalance: break
         }
     }
 

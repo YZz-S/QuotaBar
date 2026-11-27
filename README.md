@@ -25,6 +25,7 @@
 | **CommandCode**（GOAT / Pro / Max…） | 5小时 / 周 / 月 使用率 + credits 余额（USD） | 官方 CLI 的 `/alpha` 私有路由 |
 | **Ollama Cloud** | 月度额度（USD）或 5小时 / 周 双窗口 | `GET ollama.com/api/balance`，Bearer Key |
 | **小米 MiMo** Token Plan | 额度档（积分，周期可月付可年付） | `GET token-plan-cn.xiaomimimo.com/v1/platform/token_plan`，Bearer `tp-` Key |
+| **小米 MiMo** 余额 | 按量付费余额（CNY）+ 服务可用状态 | `GET api.xiaomimimo.com/v1/platform/balance`，Bearer `sk-` Key |
 | **DeepSeek** | 账户余额（CNY）+ 服务可用状态 | `GET /user/balance` |
 
 百分比口径在**每家都不一样**（有的给「已用」，有的给「剩余」，有的给 0-1 分数），解析时逐个实测确认过：
@@ -38,6 +39,20 @@
 | Ollama Cloud | 新套餐给 `allowance_usd` + `balance_usd`（剩余） | `allowance - balance` |
 | 小米 MiMo | `total_credits` / `used_credits` | `used ÷ total` |
 | CommandCode | credits 池是**剩余** | `已花 ÷ (已花 + 剩余)` |
+
+### 关于小米 MiMo 的两套凭据
+
+MiMo 的「套餐」和「按量付费」是**两个独立系统**，Key 前缀不同、端点不同，互不通用：
+
+| | 套餐（Token Plan） | 按量付费余额 |
+|---|---|---|
+| Key 前缀 | `tp-` | `sk-` |
+| 端点 | `token-plan-cn.xiaomimimo.com` | `api.xiaomimimo.com` |
+| 返回 | 积分额度档 + 周期 | 现金/赠送余额（CNY） |
+| 额外字段 | — | `is_available` 服务可用状态 |
+
+实测交叉验证过：`sk-` 打套餐端点报 `Invalid API key`，`tp-` 打余额端点返回 401。
+两者都配时会在界面上显示成两个独立条目（「小米 MiMo」与「小米 MiMo 余额」）。
 
 ### 关于 CommandCode 的月度口径
 

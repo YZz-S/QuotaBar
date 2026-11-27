@@ -26,6 +26,7 @@ struct SettingsView: View {
     @State private var zenMuxBaseUrl = ""
     @State private var ollamaKey = ""
     @State private var mimoKey = ""
+    @State private var mimoBalanceKey = ""
     @State private var prefs = DisplayStore.load()
     @State private var effective: [ProviderCredentials] = []
     @State private var saveMessage = ""
@@ -120,6 +121,11 @@ struct SettingsView: View {
                 providerForm(.mimoTokenPlan) {
                     SecureField("Token Plan Key（tp- 开头，不是 sk- 按量 Key）", text: $mimoKey)
                 }
+                Divider()
+                providerForm(.mimoBalance) {
+                    SecureField("按量付费 Key（sk- 开头；走 api.xiaomimimo.com 查余额，与 Token Plan 是两套凭据）",
+                                text: $mimoBalanceKey)
+                }
                 HStack(spacing: 10) {
                     Button("保存手动配置") { saveManual() }
                         .buttonStyle(.borderedProminent)
@@ -195,6 +201,8 @@ struct SettingsView: View {
                 ollamaKey = manual.apiKey ?? ""
             case .mimoTokenPlan:
                 mimoKey = manual.apiKey ?? ""
+            case .mimoBalance:
+                mimoBalanceKey = manual.apiKey ?? ""
             }
         }
     }
@@ -211,6 +219,7 @@ struct SettingsView: View {
         let simple: [(ProviderKind, String)] = [
             (.kimi, kimiKey), (.miniMax, miniMaxKey),
             (.ollamaCloud, ollamaKey), (.mimoTokenPlan, mimoKey),
+            (.mimoBalance, mimoBalanceKey),
         ]
         for (kind, raw) in simple {
             let key = trimmed(raw)
@@ -269,7 +278,7 @@ struct SettingsView: View {
         deepseekToken = ""
         openCodeKey = ""; commandCodeKey = ""
         kimiKey = ""; miniMaxKey = ""; zenMuxKey = ""; zenMuxBaseUrl = ""
-        ollamaKey = ""; mimoKey = ""
+        ollamaKey = ""; mimoKey = ""; mimoBalanceKey = ""
         ProvidersStore.saveManual([])
         applyAndNotify()
         saveMessage = "已清空，沿用 cc-switch 自动识别"

@@ -14,6 +14,7 @@ extension ProviderKind {
         case .zenMux: return "point.3.connected.trianglepath.dotted"
         case .ollamaCloud: return "cloud.fill"
         case .mimoTokenPlan: return "leaf.fill"
+        case .mimoBalance: return "yensign.circle.fill"
         }
     }
 
@@ -29,6 +30,7 @@ extension ProviderKind {
         case .zenMux: return .mint
         case .ollamaCloud: return .gray
         case .mimoTokenPlan: return .brown
+        case .mimoBalance: return .brown
         }
     }
 }

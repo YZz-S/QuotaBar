@@ -44,6 +44,7 @@ enum QueryService {
             case .zenMux: return try await fetchZenMux(credential, timeout: timeout)
             case .ollamaCloud: return try await fetchOllamaCloud(credential, timeout: timeout)
             case .mimoTokenPlan: return try await fetchMimoTokenPlan(credential, timeout: timeout)
+            case .mimoBalance: return try await fetchMimoBalance(credential, timeout: timeout)
             }
         } catch {
             return ProviderUsage(kind: credential.kind, ok: false, errorMessage: error.localizedDescription)
@@ -268,6 +269,46 @@ enum QueryService {
             kind: .deepseek, ok: true,
             subtitle: "余额",
             balance: JSONUtil.double(main, "total_balance") ?? 0,
+            currency: JSONUtil.string(main, "currency") ?? "CNY",
+            isAvailable: JSONUtil.bool(json, "is_available"))
+    }
+
+    // MARK: - 小米 MiMo 按量付费余额（sk- Key，官方 /v1/platform/balance）
+
+    /// `GET https://api.xiaomimimo.com/v1/platform/balance`，`Authorization: Bearer sk-…`
+    /// 响应与 DeepSeek 同构：`{ is_available, balance_infos: [{ currency, cash_balance,
+    /// gift_balance, frozen_balance, total_available }] }`。
+    /// 实测：无 key / 假 key / tp- key 一律 401，只有 sk-（按量付费）key 能查，
+    /// 因此这条与 Token Plan（tp-）是两套独立凭据，互不通用。
+    private static func fetchMimoBalance(_ credential: ProviderCredentials, timeout: TimeInterval) async throws -> ProviderUsage {
+        guard let token = credential.apiKey ?? credential.bearerToken else {
+            throw QueryError.missingCredentials("小米 MiMo 按量付费 Key（sk-）未配置")
+        }
+        var request = URLRequest(url: URL(string: "https://api.xiaomimimo.com/v1/platform/balance")!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await makeSession(timeout).data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw QueryError.remote("小米 MiMo 余额: 响应解析失败 (HTTP \(status))")
+        }
+        if status == 401 || status == 403 {
+            throw QueryError.remote("小米 MiMo 余额: 鉴权失败 (HTTP \(status))，这条链路需要 sk- 按量付费 Key；tp- 是 Token Plan 专用")
+        }
+        if status != 200 {
+            let message = ((json["error"] as? [String: Any]).flatMap { JSONUtil.string($0, "message") }) ?? "HTTP \(status)"
+            throw QueryError.remote("小米 MiMo 余额: \(message)")
+        }
+        let infos = (json["balance_infos"] as? [[String: Any]]) ?? []
+        guard let main = infos.first else { throw QueryError.remote("小米 MiMo 余额: 无余额数据") }
+        // total_available 是可用合计（现金 + 赠送 − 冻结）；缺失时退回 cash_balance
+        let available = JSONUtil.double(main, "total_available",
+                                        "cash_balance", "total_balance") ?? 0
+        return ProviderUsage(
+            kind: .mimoBalance, ok: true,
+            subtitle: "按量付费",
+            balance: available,
             currency: JSONUtil.string(main, "currency") ?? "CNY",
             isAvailable: JSONUtil.bool(json, "is_available"))
     }

@@ -141,7 +141,7 @@ enum ProvidersStore {
         //    （与 cc-switch 的 detect_provider 同口径，含路径前缀要求，不认中转站伪造域名）。
         if let plan = planProvider(explicit: codingPlanProvider, baseURL: inferenceBaseURL) {
             switch plan {
-            case .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan:
+            case .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan, .mimoBalance:
                 if let key = planAPIKey(settings: settings, env: env) {
                     return ProviderCredentials(kind: plan, sourceName: name, apiKey: key)
                 }
@@ -185,6 +185,8 @@ enum ProvidersStore {
         // ollama.com 只认云端；本地 localhost:11434 不是 http(s) 域名，天然不命中
         if hostIs(["ollama.com"]) { return .ollamaCloud }
         if hostIs(["token-plan-cn.xiaomimimo.com"]) { return .mimoTokenPlan }
+        // api.xiaomimimo.com 是按量付费网关（sk- key）；token-plan-cn 才是套餐（tp- key）
+        if hostIs(["api.xiaomimimo.com"]) { return .mimoBalance }
         return nil
     }
 

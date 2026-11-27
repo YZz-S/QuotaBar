@@ -41,11 +41,13 @@ SNAPSHOT_FILE = STATE_DIR / "snapshot.json"
 CC_SWITCH_DB = Path.home() / ".cc-switch" / "cc-switch.db"
 
 KIND_ORDER = ["volcengine", "zhipu", "kimi", "minimax", "zenmux",
-              "opencode-go", "commandcode", "ollama-cloud", "mimo-token-plan", "deepseek"]
+              "opencode-go", "commandcode", "ollama-cloud", "mimo-token-plan",
+              "mimo-balance", "deepseek"]
 DISPLAY_NAME = {"volcengine": "火山方舟", "zhipu": "智谱 GLM", "deepseek": "DeepSeek",
                 "opencode-go": "OpenCode Go", "commandcode": "CommandCode",
                 "kimi": "Kimi For Coding", "minimax": "MiniMax", "zenmux": "ZenMux",
-                "ollama-cloud": "Ollama Cloud", "mimo-token-plan": "小米 MiMo"}
+                "ollama-cloud": "Ollama Cloud", "mimo-token-plan": "小米 MiMo",
+                "mimo-balance": "小米 MiMo 余额"}
 DEFAULT_TIMEOUT = 12
 USER_AGENT = "QuotaBar-Windows/1.0"
 
@@ -342,6 +344,9 @@ def _plan_provider_kind(explicit, base_url):
         return "ollama-cloud"
     if host_is("token-plan-cn.xiaomimimo.com"):
         return "mimo-token-plan"
+    # api.xiaomimimo.com 是按量付费网关（sk- key）；token-plan-cn 才是套餐（tp- key）
+    if host_is("api.xiaomimimo.com"):
+        return "mimo-balance"
     return None
 
 
@@ -729,6 +734,54 @@ def fetch_deepseek(credential, timeout):
                      source=credential.get("sourceName"))
     return usage("deepseek", True, subtitle="余额",
                  balance=j_num(main, "total_balance") or 0,
+                 currency=j_str(main, "currency") or "CNY",
+                 is_available=j_bool(payload, "is_available"),
+                 source=credential.get("sourceName"))
+
+
+# ---------------------------------------------------------------------------
+# 小米 MiMo 按量付费余额（sk- Key，官方 /v1/platform/balance）
+# 与 Token Plan（tp- Key，token-plan-cn）是两套独立凭据：
+# 实测无 key / 假 key / tp- key 在该端点一律 401，只有 sk- 能查。
+
+MIMO_BALANCE_URL = "https://api.xiaomimimo.com/v1/platform/balance"
+
+
+def fetch_mimo_balance(credential, timeout):
+    key = credential.get("apiKey") or credential.get("bearerToken")
+    if not key:
+        return usage("mimo-balance", False,
+                     error="小米 MiMo 按量付费 Key（sk-）未配置",
+                     source=credential.get("sourceName"))
+    try:
+        status, payload = http_json("GET", MIMO_BALANCE_URL,
+                                    {"Authorization": f"Bearer {key}",
+                                     "Accept": "application/json"}, timeout)
+    except ConnectionError as e:
+        return usage("mimo-balance", False, error=str(e), source=credential.get("sourceName"))
+    if not isinstance(payload, dict):
+        return usage("mimo-balance", False,
+                     error=f"小米 MiMo 余额: 响应解析失败 (HTTP {status})",
+                     source=credential.get("sourceName"))
+    if status in (401, 403):
+        return usage("mimo-balance", False,
+                     error=f"小米 MiMo 余额: 鉴权失败 (HTTP {status})，"
+                           f"这条链路需要 sk- 按量付费 Key；tp- 是 Token Plan 专用",
+                     source=credential.get("sourceName"))
+    if status != 200:
+        error = payload.get("error")
+        message = (j_str(error, "message") if isinstance(error, dict) else None) or f"HTTP {status}"
+        return usage("mimo-balance", False, error=f"小米 MiMo 余额: {message}",
+                     source=credential.get("sourceName"))
+    infos = payload.get("balance_infos")
+    main = infos[0] if isinstance(infos, list) and infos and isinstance(infos[0], dict) else None
+    if main is None:
+        return usage("mimo-balance", False, error="小米 MiMo 余额: 无余额数据",
+                     source=credential.get("sourceName"))
+    # total_available 是可用合计（现金 + 赠送 − 冻结）；缺失时退回 cash_balance
+    available = j_num(main, "total_available", "cash_balance", "total_balance") or 0
+    return usage("mimo-balance", True, subtitle="按量付费",
+                 balance=available,
                  currency=j_str(main, "currency") or "CNY",
                  is_available=j_bool(payload, "is_available"),
                  source=credential.get("sourceName"))
@@ -1203,7 +1256,8 @@ FETCHERS = {"volcengine": fetch_volc, "zhipu": fetch_zhipu,
             "deepseek": fetch_deepseek, "opencode-go": fetch_opencode,
             "commandcode": fetch_commandcode, "kimi": fetch_kimi,
             "minimax": fetch_minimax, "zenmux": fetch_zenmux,
-            "ollama-cloud": fetch_ollama_cloud, "mimo-token-plan": fetch_mimo_token_plan}
+            "ollama-cloud": fetch_ollama_cloud, "mimo-token-plan": fetch_mimo_token_plan,
+            "mimo-balance": fetch_mimo_balance}
 
 
 def fetch_all(credentials, timeout=DEFAULT_TIMEOUT):

@@ -67,6 +67,8 @@ enum ProviderKind: String, Codable, CaseIterable {
     case ollamaCloud = "ollama-cloud"
     /// 小米 MiMo Token Plan（token-plan-cn.xiaomimimo.com，tp- 专属 Key）
     case mimoTokenPlan = "mimo-token-plan"
+    /// 小米 MiMo 按量付费余额（api.xiaomimimo.com，sk- 专属 Key；与 Token Plan 是两套凭据）
+    case mimoBalance = "mimo-balance"
 
     var displayName: String {
         switch self {
@@ -80,6 +82,7 @@ enum ProviderKind: String, Codable, CaseIterable {
         case .zenMux: return "ZenMux"
         case .ollamaCloud: return "Ollama Cloud"
         case .mimoTokenPlan: return "小米 MiMo"
+        case .mimoBalance: return "小米 MiMo 余额"
         }
     }
 
@@ -95,13 +98,14 @@ enum ProviderKind: String, Codable, CaseIterable {
         case .zenMux: return "https://zenmux.ai/platform"
         case .ollamaCloud: return "https://ollama.com/settings/keys"
         case .mimoTokenPlan: return "https://platform.xiaomimimo.com/#/console/plan-manage"
+        case .mimoBalance: return "https://platform.xiaomimimo.com/#/console/balance"
         }
     }
 
     /// 该 provider 是否用「窗口使用率」评判（余额型 provider 不参与百分比警戒）
     var isWindowBased: Bool {
         switch self {
-        case .deepseek: return false
+        case .deepseek, .mimoBalance: return false
         default: return true
         }
     }
@@ -109,7 +113,7 @@ enum ProviderKind: String, Codable, CaseIterable {
     /// 展示与遍历的稳定顺序（纯数据层，不依赖 SwiftUI，便于脚本单独编译校验）
     static var displayOrder: [ProviderKind] {
         [.volcengine, .zhipu, .kimi, .miniMax, .zenMux,
-         .openCodeGo, .commandCode, .ollamaCloud, .mimoTokenPlan, .deepseek]
+         .openCodeGo, .commandCode, .ollamaCloud, .mimoTokenPlan, .mimoBalance, .deepseek]
     }
 }
 
@@ -207,7 +211,7 @@ struct ProviderCredentials: Codable {
         case .volcengine: return "AK \(accessKey == nil ? "✗" : "✓") / SK \(secretKey == nil ? "✗" : "✓")"
         case .zhipu: return "apiKey \(apiKey == nil ? "✗" : "✓")"
         case .deepseek: return "token \(bearerToken == nil ? "✗" : "✓")"
-        case .openCodeGo, .commandCode, .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan:
+        case .openCodeGo, .commandCode, .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan, .mimoBalance:
             return "apiKey \(apiKey == nil ? "✗" : "✓")"
         case .zenMux: return "apiKey \(apiKey == nil ? "✗" : "✓") / baseUrl \(baseUrl == nil ? "✗" : "✓")"
         }
@@ -218,7 +222,7 @@ struct ProviderCredentials: Codable {
         case .volcengine: return accessKey != nil && secretKey != nil
         case .zhipu: return apiKey != nil
         case .deepseek: return bearerToken != nil
-        case .openCodeGo, .commandCode, .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan:
+        case .openCodeGo, .commandCode, .kimi, .miniMax, .ollamaCloud, .mimoTokenPlan, .mimoBalance:
             return apiKey != nil
         case .zenMux: return apiKey != nil && baseUrl != nil
         }
